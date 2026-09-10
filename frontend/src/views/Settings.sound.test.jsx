@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Settings from './Settings.jsx'
 import { unlock } from '../lib/sound.js'
+import { bindUI } from '../components/ui.jsx'
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
@@ -210,5 +211,33 @@ describe('Settings — which sound', () => {
     mocks.S.sound = false
     mount()
     expect(rowTitled('Sound')).toBeUndefined()
+  })
+
+  // The third choice: one rest-over sound per kind of rest, kept in the same field ('kind') so
+  // the choice stays one setting for the sync, and an app that knows only two reads it as Classic.
+  it('offers one sound per kind of rest as a third choice, stored in classicChime as \'kind\'', () => {
+    let sheet = null
+    bindUI({ getState: () => ({ openSheet: render => { sheet = render; return { close: () => {} } } }) })
+    const pickHost = document.createElement('div')
+    document.body.appendChild(pickHost)
+    const pickRoot = createRoot(pickHost)
+    const pick = label => {
+      mount()
+      act(() => { rowTitled('Sound').click() })
+      act(() => pickRoot.render(sheet(() => {})))
+      const option = [...pickHost.querySelectorAll('.lrow')].find(r => r.querySelector('.lrow-t')?.textContent === label)
+      expect(option).toBeTruthy()
+      act(() => { option.click() })
+    }
+    pick('One per kind of rest')
+    expect(mocks.S.classicChime).toBe('kind')
+    mount()
+    expect(rowTitled('Sound').querySelector('.lrow-v').textContent).toBe('One per kind of rest')
+    pick('Classic beeps')
+    expect(mocks.S.classicChime).toBe(true)
+    pick('Chime (louder)')
+    expect(mocks.S.classicChime).toBe(false)
+    act(() => pickRoot.unmount())
+    pickHost.remove()
   })
 })

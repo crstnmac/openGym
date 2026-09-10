@@ -1832,6 +1832,8 @@ export default {
   'Sound': 'Ses',
   'Chime (louder)': 'Çan (daha yüksek)',
   'Classic beeps': 'Klasik bipler',
+  'One per kind of rest': 'Dinlenme türüne göre ayrı ses',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'İki bip: sonraki set. Üç hızlı bip: sonraki tur. Yükselen iki nota: sonraki egzersiz.',
   'Play even on silent': 'Sessizdeyken de çal',
   'Vibrate on silent too': 'Sessizdeyken de titreş',
   'Flash the screen': 'Ekranı yakıp söndür',

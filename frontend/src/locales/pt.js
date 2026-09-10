@@ -1832,6 +1832,8 @@ export default {
   'Sound': 'Som',
   'Chime (louder)': 'Carrilhão (mais alto)',
   'Classic beeps': 'Bipes clássicos',
+  'One per kind of rest': 'Um por tipo de descanso',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'Dois bipes: próxima série. Três bipes rápidos: próxima ronda. Duas notas a subir: próximo exercício.',
   'Play even on silent': 'Tocar mesmo em silêncio',
   'Vibrate on silent too': 'Vibrar também em silêncio',
   'Flash the screen': 'Piscar o ecrã',

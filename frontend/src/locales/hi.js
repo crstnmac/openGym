@@ -1832,6 +1832,8 @@ export default {
   'Sound': 'आवाज़',
   'Chime (louder)': 'चाइम (तेज़)',
   'Classic beeps': 'क्लासिक बीप',
+  'One per kind of rest': 'हर तरह के आराम की अलग ध्वनि',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'दो बीप: अगला सेट। तीन तेज़ बीप: अगला राउंड। दो चढ़ते सुर: अगला व्यायाम।',
   'Play even on silent': 'साइलेंट पर भी बजाएँ',
   'Vibrate on silent too': 'साइलेंट पर भी कंपन',
   'Flash the screen': 'स्क्रीन चमकाएँ',

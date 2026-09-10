@@ -1835,6 +1835,8 @@ export default {
   'Sound': 'Hang',
   'Chime (louder)': 'Csengő (hangosabb)',
   'Classic beeps': 'Klasszikus sípolás',
+  'One per kind of rest': 'Pihenőtípusonként más',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'Két sípolás: következő sorozat. Három gyors sípolás: következő kör. Két emelkedő hang: következő gyakorlat.',
   'Play even on silent': 'Némítva is szóljon',
   'Vibrate on silent too': 'Némítva is rezegjen',
   'Flash the screen': 'Villogjon a képernyő',

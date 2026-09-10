@@ -1212,6 +1212,7 @@ export const PT_BR_OVERRIDES = {
   'Greys show lighter in dark mode, so buttons don’t look switched off.': 'Os cinzas ficam mais claros no modo escuro, para os botões não parecerem desligados.',
   'Greys show darker in light mode, so buttons don’t look switched off.': 'Os cinzas ficam mais escuros no modo claro, para os botões não parecerem desligados.',
   'Signed in from another tab. Your workout came along, keep going here.': 'Login feito em outra aba. Seu treino veio junto, continue por aqui.',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'Dois bipes: próxima série. Três bipes rápidos: próxima rodada. Duas notas subindo: próximo exercício.',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

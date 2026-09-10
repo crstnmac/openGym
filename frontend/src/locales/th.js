@@ -1843,6 +1843,8 @@ export default {
   'Sound': 'เสียง',
   'Chime (louder)': 'เสียงกริ่ง (ดังกว่า)',
   'Classic beeps': 'เสียงบี๊บแบบคลาสสิก',
+  'One per kind of rest': 'เสียงตามประเภทการพัก',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'บี๊บสองครั้ง: เซ็ตถัดไป บี๊บเร็วสามครั้ง: รอบถัดไป สองโน้ตไล่ขึ้น: ท่าถัดไป',
   'Play even on silent': 'เล่นแม้อยู่ในโหมดเงียบ',
   'Vibrate on silent too': 'สั่นแม้อยู่ในโหมดเงียบ',
   'Flash the screen': 'กะพริบหน้าจอ',

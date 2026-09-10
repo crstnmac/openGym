@@ -1832,6 +1832,8 @@ export default {
   'Sound': 'Suono',
   'Chime (louder)': 'Rintocco (più forte)',
   'Classic beeps': 'Bip classici',
+  'One per kind of rest': 'Uno per tipo di riposo',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'Due bip: serie successiva. Tre bip rapidi: giro successivo. Due note crescenti: esercizio successivo.',
   'Play even on silent': 'Suona anche in silenzioso',
   'Vibrate on silent too': 'Vibra anche in silenzioso',
   'Flash the screen': 'Fai lampeggiare lo schermo',

@@ -1832,6 +1832,8 @@ export default {
   'Sound': '소리',
   'Chime (louder)': '차임 (더 크게)',
   'Classic beeps': '클래식 비프음',
+  'One per kind of rest': '휴식 종류마다 다른 소리',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': '비프음 두 번: 다음 세트. 빠른 비프음 세 번: 다음 라운드. 올라가는 두 음: 다음 운동.',
   'Play even on silent': '무음 모드에서도 재생',
   'Vibrate on silent too': '무음 모드에서도 진동',
   'Flash the screen': '화면 깜빡이기',

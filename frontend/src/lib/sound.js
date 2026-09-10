@@ -102,13 +102,17 @@ export function beep(enabled, freq, dur, when) {
 // sound" (S.classicChime) picks between the two without reviving the three separate beep() calls
 // this replaced: CLASSIC is the exact same three tones, just driven through the same tone() path
 // as the chime below, so both share one gating/try-catch and one sleepAfter bookkeeping.
+//
+// The same setting has a third value, 'kind': the end of a rest then plays one of the patterns
+// of restOver below, chosen by what the rest leads into. A hold and a switch-sides pause have no
+// kind, and with that choice they keep the chime: only the boolean true is Classic.
 export const CHIME_PEAK = 0.9
 const CHIME = [[1319, 0.16, 0], [988, 0.16, 0.22], [1319, 0.5, 0.44]]
 const CLASSIC = [[880, 0.15, 0], [880, 0.15, 0.25], [1320, 0.4, 0.5]]
 export function chime(enabled, classic) {
   if (!enabled) return
   try {
-    if (classic) CLASSIC.forEach(([freq, dur, when]) => tone(freq, dur, when))
+    if (classic === true) CLASSIC.forEach(([freq, dur, when]) => tone(freq, dur, when))
     else CHIME.forEach(([freq, dur, when]) => tone(freq, dur, when, { peak: CHIME_PEAK, hold: 0.6, bright: true }))
   } catch (e) { /* */ }
 }
@@ -140,6 +144,29 @@ export const appleTouchDevice = () => {
 export function setPlayOnSilent(on) {
   if (!playOnSilentSupported()) return
   try { navigator.audioSession.type = on ? 'playback' : 'auto' } catch (e) { /* */ }
+}
+
+// Settings → When a rest ends → "One per kind of rest" is S.classicChime === 'kind'. Kept in the
+// field the Chime / Classic choice already uses, so the choice stays one setting that the sync
+// takes from the device that changed it last (lib/sync-merge.js stamps each field). An app that
+// knows only Chime and Classic reads it as a truthy classicChime: Classic, and it keeps working.
+// One rest-over sound per kind of rest, so you can tell without looking whether to stay at the
+// station, go back to the top of the superset, or move on:
+//   set   — same exercise, next set:          two mid beeps
+//   round — a superset round is over:         three quick high beeps
+//   block — this exercise (or superset) is finished and another follows: a long two-note chime
+// None of them opens on the 660 Hz countdown tick, none is a rising triple like the
+// finish-workout fanfare (sheets.jsx), and none is the high-low-high chime above, which still
+// ends a hold and a switch-sides pause (useUI.js).
+// The kind is decided in supersetFlow.restKind, next to the rule that decides whether a set
+// earns a rest at all. Unknown kinds get the plain set sound.
+const REST_OVER = {
+  set: [[880, 0.15, 0], [880, 0.15, 0.25]],
+  round: [[1100, 0.1, 0], [1100, 0.1, 0.15], [1100, 0.1, 0.3]],
+  block: [[880, 0.25, 0], [1320, 0.5, 0.35]],
+}
+export function restOver(enabled, kind) {
+  for (const [freq, dur, when] of REST_OVER[kind] || REST_OVER.set) beep(enabled, freq, dur, when)
 }
 
 // Settings → "Vibrate" (Discord, asierlama): the buzz at the end of a rest or a hold and on a set

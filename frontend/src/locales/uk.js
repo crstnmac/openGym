@@ -1829,6 +1829,8 @@ export default {
   'Sound': 'Звук',
   'Chime (louder)': 'Дзвіночок (гучніше)',
   'Classic beeps': 'Класичні сигнали',
+  'One per kind of rest': 'Свій для кожного виду відпочинку',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'Два сигнали: наступний підхід. Три швидкі сигнали: наступне коло. Дві висхідні ноти: наступна вправа.',
   'Play even on silent': 'Грати і в беззвучному режимі',
   'Vibrate on silent too': 'Вібрувати і в беззвучному режимі',
   'Flash the screen': 'Блимати екраном',

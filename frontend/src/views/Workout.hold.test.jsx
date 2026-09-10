@@ -11,7 +11,7 @@ import { DEF, useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { beep, chime, vibrate, alertBuzz } from '../lib/sound.js'
 
-vi.mock('../lib/sound.js', () => ({ beep: vi.fn(), chime: vi.fn(), vibrate: vi.fn(), alertBuzz: vi.fn(), unlock: vi.fn() }))
+vi.mock('../lib/sound.js', () => ({ beep: vi.fn(), chime: vi.fn(), vibrate: vi.fn(), alertBuzz: vi.fn(), restOver: vi.fn(), unlock: vi.fn() }))
 vi.mock('../lib/api.js', () => ({ api: vi.fn(() => Promise.resolve({})), appBase: () => '/' }))
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -116,7 +116,7 @@ describe('a per-side hold', () => {
     holdRow(1)
     expect(doneOf()).toEqual([true, true, false, false])
     const tm = useUI.getState().timer
-    expect(tm.kind).toBeUndefined()
+    expect(tm.kind).toBe('set')                                  // the next set's rest, not a switch
     expect(tm.total).toBe(useStore.getState().S.restSec)
   })
 

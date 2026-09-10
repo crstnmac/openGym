@@ -1832,6 +1832,8 @@ export default {
   'Sound': '提示音',
   'Chime (louder)': '铃声（更响）',
   'Classic beeps': '经典哔声',
+  'One per kind of rest': '按休息类型区分',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': '两声哔：下一组。三声快哔：下一轮。两个上升音：下一个动作。',
   'Play even on silent': '静音时也播放',
   'Vibrate on silent too': '静音时也振动',
   'Flash the screen': '闪烁屏幕',

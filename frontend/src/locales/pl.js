@@ -1832,6 +1832,8 @@ export default {
   'Sound': 'Dźwięk',
   'Chime (louder)': 'Gong (głośniej)',
   'Classic beeps': 'Klasyczne piknięcia',
+  'One per kind of rest': 'Inny dla każdego rodzaju odpoczynku',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'Dwa sygnały: następna seria. Trzy szybkie sygnały: następna runda. Dwa rosnące dźwięki: następne ćwiczenie.',
   'Play even on silent': 'Graj też przy wyciszeniu',
   'Vibrate on silent too': 'Wibruj też przy wyciszeniu',
   'Flash the screen': 'Mignij ekranem',

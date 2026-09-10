@@ -1852,6 +1852,8 @@ export default {
   'Sound': 'Ton',
   'Chime (louder)': 'Gong (lauter)',
   'Classic beeps': 'Klassische Pieptöne',
+  'One per kind of rest': 'Je nach Art der Pause',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'Zwei Pieptöne: nächster Satz. Drei schnelle Pieptöne: nächste Runde. Zwei steigende Töne: nächste Übung.',
   'Play even on silent': 'Auch im Lautlos-Modus',
   'Vibrate on silent too': 'Auch lautlos vibrieren',
   'Flash the screen': 'Bildschirm blinken lassen',

@@ -564,12 +564,17 @@ export default function Settings({ page = null, find = null, via = null }) {
           {/* The chime that replaced the original three beeps (Discord: "too quiet under music")
               is not an improvement for everyone: louder is a cost with headphones or in a quiet
               room. The chime by default; Classic brings the original back unchanged
-              (lib/sound.js's CLASSIC). Stored as S.classicChime, as before. */}
+              (lib/sound.js's CLASSIC). Stored as S.classicChime, as before. The third choice,
+              one sound per kind of rest (lib/sound.js restOver), is the same field set to 'kind':
+              one setting, so the sync keeps whichever choice was made last, and an app that
+              knows only the first two reads it as Classic. A hold keeps the chime with it. */}
           {S.sound && <SelectRow icon="speaker" iconTint="var(--pink)" title={t('Sound')}
-            value={S.classicChime ? 'classic' : 'chime'} onChange={v => update(s => { s.classicChime = v === 'classic' })}
+            value={S.classicChime === 'kind' ? 'kind' : S.classicChime ? 'classic' : 'chime'}
+            onChange={v => update(s => { s.classicChime = v === 'kind' ? 'kind' : v === 'classic' })}
             options={[
               { value: 'chime', label: t('Chime (louder)') },
               { value: 'classic', label: t('Classic beeps'), subtitle: t('The quieter three-beep sound from before 1.3.9, instead of the louder chime.') },
+              { value: 'kind', label: t('One per kind of rest'), subtitle: t('Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.') },
             ]} />}
           {/* iOS only (WebKit's audio-session API, iOS 17+): with it off the ring/silent switch
               mutes the timer. On, the phone treats the timer like a music player (exclusive, and

@@ -3,6 +3,9 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { useUI } from './useUI.js'
 import { useStore } from './useStore.js'
+import { chime, restOver } from '../lib/sound.js'
+
+vi.mock('../lib/sound.js', () => ({ beep: vi.fn(), chime: vi.fn(), vibrate: vi.fn(), alertBuzz: vi.fn(), unlock: vi.fn(), restOver: vi.fn() }))
 
 // "Off" has to hold at the timer itself, not at the four places that start one — the same
 // reason the rest-after-a-set rule is a shared condition rather than four copies.
@@ -264,5 +267,84 @@ describe('rest readiness and optional timed-set overtime', () => {
     useUI.getState().stopWork()
     expect(canceled).not.toHaveBeenCalled()
     expect(replacement).not.toHaveBeenCalled()
+  })
+})
+
+// One rest-over sound per kind of rest (set / round / block), the third choice under Settings →
+// When a rest ends (S.classicChime === 'kind'). The kind travels with the timer so the sound at
+// zero is the one the set that started the rest earned, not whatever the screen shows by then.
+describe('rest-over sound per kind of rest', () => {
+  let originalSettings
+  const pick = classicChime => useStore.setState({ S: { ...useStore.getState().S, classicChime } })
+  beforeEach(() => {
+    vi.useFakeTimers()
+    restOver.mockClear()
+    chime.mockClear()
+    originalSettings = useStore.getState().S
+    useStore.setState({ S: { ...originalSettings, sound: true, timerFlash: false } })
+    useUI.setState({ timer: null, work: null })
+  })
+  afterEach(() => { useUI.getState().stopRest(); useUI.getState().stopWork(); useStore.setState({ S: originalSettings }); vi.useRealTimers() })
+
+  it('keeps the kind on the running timer', () => {
+    useUI.getState().startRest(90, 2, { kind: 'round' })
+    expect(useUI.getState().timer).toMatchObject({ forIdx: 2, kind: 'round' })
+  })
+
+  it('plays the sound for that kind when the rest ends, with one per kind picked', () => {
+    pick('kind')
+    useUI.getState().startRest(1, 0, { kind: 'block' })
+    vi.advanceTimersByTime(1000)
+    expect(restOver).toHaveBeenCalledTimes(1)
+    expect(restOver).toHaveBeenCalledWith(true, 'block')
+    expect(chime).not.toHaveBeenCalled()
+  })
+
+  it('the chime stays the default, and Classic stays Classic', () => {
+    useUI.getState().startRest(1, 0, { kind: 'block' })
+    vi.advanceTimersByTime(1000)
+    expect(chime).toHaveBeenLastCalledWith(true, undefined)
+    pick(true)
+    useUI.getState().startRest(1, 0, { kind: 'set' })
+    vi.advanceTimersByTime(1000)
+    expect(chime).toHaveBeenLastCalledWith(true, true)
+    expect(restOver).not.toHaveBeenCalled()
+  })
+
+  it('a hold and a switch-sides pause keep the chime, which is not Classic', () => {
+    pick('kind')
+    useUI.getState().startWork(1, 'Plank', vi.fn())
+    vi.advanceTimersByTime(1000)
+    useUI.getState().startRest(1, 0, { kind: 'switch' })
+    vi.advanceTimersByTime(1000)
+    expect(restOver).not.toHaveBeenCalled()
+    expect(chime.mock.calls).toEqual([[true, 'kind'], [true, 'kind']])   // lib/sound.js: only true is Classic
+  })
+
+  it('passes the Sounds setting through, so off stays off', () => {
+    pick('kind')
+    useStore.setState({ S: { ...useStore.getState().S, sound: false } })
+    useUI.getState().startRest(1, 0, { kind: 'set' })
+    vi.advanceTimersByTime(1000)
+    expect(restOver).toHaveBeenCalledWith(false, 'set')
+  })
+
+  it('a rest started without a kind still ends with a sound', () => {
+    pick('kind')
+    useUI.getState().startRest(1)
+    vi.advanceTimersByTime(1000)
+    expect(restOver).toHaveBeenCalledWith(true, undefined)
+  })
+
+  it('keeps the kind when the rest is extended, and when it is started again from Ready', () => {
+    useUI.getState().startRest(60, 1, { kind: 'round' })
+    useUI.getState().addRest(30)
+    expect(useUI.getState().timer.kind).toBe('round')
+    useUI.getState().startRest(1, 1, { kind: 'block', forSet: 2 })
+    vi.advanceTimersByTime(1000)
+    expect(useUI.getState().timer).toMatchObject({ ready: true, kind: 'block' })
+    useUI.getState().addRest(15)
+    expect(useUI.getState().timer).toMatchObject({ left: 15, forIdx: 1, forSet: 2, kind: 'block' })
+    expect(useUI.getState().timer.ready).toBeUndefined()
   })
 })

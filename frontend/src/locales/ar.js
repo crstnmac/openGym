@@ -1885,6 +1885,8 @@ export default {
   'Sound': 'الصوت',
   'Chime (louder)': 'رنين (أعلى)',
   'Classic beeps': 'صفارات كلاسيكية',
+  'One per kind of rest': 'صوت لكل نوع من الراحة',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'نغمتان: المجموعة التالية. ثلاث نغمات سريعة: الجولة التالية. نغمتان صاعدتان: التمرين التالي.',
   'Play even on silent': 'التشغيل حتى في الوضع الصامت',
   'Vibrate on silent too': 'الاهتزاز في الوضع الصامت أيضًا',
   'Flash the screen': 'وميض الشاشة',
