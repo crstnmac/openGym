@@ -50,6 +50,16 @@ describe('rest timer bar: what it is timing', () => {
     expect(label()).toBe('Exercise')
   })
 
+  it('says Warm-up for a rest before a warm-up set, decided where the rest started', () => {
+    act(() => { useUI.getState().startRest(45, 0, { kind: 'set', phase: 'warmup' }) })   // after ramp set 1
+    mount()
+    expect(label()).toBe('Warm-up')
+    act(() => { useUI.getState().startRest(150, 0, { kind: 'set', phase: 'work' }) })    // after the last ramp set
+    expect(label()).toBe('Set')
+    act(() => { useUI.getState().startRest(90, 0, { kind: 'round', phase: 'warmup' }) })  // rounds do not say it
+    expect(label()).toBe('Round')
+  })
+
   it('a rest without a kind just says Rest', () => {
     act(() => { useUI.getState().startRest(60) })
     mount()

@@ -286,9 +286,11 @@ describe('rest-over sound per kind of rest', () => {
   })
   afterEach(() => { useUI.getState().stopRest(); useUI.getState().stopWork(); useStore.setState({ S: originalSettings }); vi.useRealTimers() })
 
-  it('keeps the kind on the running timer', () => {
+  it('keeps the kind and the set phase on the running timer', () => {
     useUI.getState().startRest(90, 2, { kind: 'round' })
     expect(useUI.getState().timer).toMatchObject({ forIdx: 2, kind: 'round' })
+    useUI.getState().startRest(45, 1, { kind: 'set', phase: 'warmup' })
+    expect(useUI.getState().timer).toMatchObject({ forIdx: 1, kind: 'set', phase: 'warmup' })
   })
 
   it('plays the sound for that kind when the rest ends, with one per kind picked', () => {
@@ -336,15 +338,15 @@ describe('rest-over sound per kind of rest', () => {
     expect(restOver).toHaveBeenCalledWith(true, undefined)
   })
 
-  it('keeps the kind when the rest is extended, and when it is started again from Ready', () => {
-    useUI.getState().startRest(60, 1, { kind: 'round' })
+  it('keeps the kind and phase when the rest is extended, and when it is started again from Ready', () => {
+    useUI.getState().startRest(60, 1, { kind: 'set', phase: 'warmup' })
     useUI.getState().addRest(30)
-    expect(useUI.getState().timer.kind).toBe('round')
-    useUI.getState().startRest(1, 1, { kind: 'block', forSet: 2 })
+    expect(useUI.getState().timer).toMatchObject({ kind: 'set', phase: 'warmup' })
+    useUI.getState().startRest(1, 1, { kind: 'set', phase: 'warmup', forSet: 2 })
     vi.advanceTimersByTime(1000)
-    expect(useUI.getState().timer).toMatchObject({ ready: true, kind: 'block' })
+    expect(useUI.getState().timer).toMatchObject({ ready: true, kind: 'set', phase: 'warmup' })
     useUI.getState().addRest(15)
-    expect(useUI.getState().timer).toMatchObject({ left: 15, forIdx: 1, forSet: 2, kind: 'block' })
+    expect(useUI.getState().timer).toMatchObject({ left: 15, forIdx: 1, forSet: 2, kind: 'set', phase: 'warmup' })
     expect(useUI.getState().timer.ready).toBeUndefined()
   })
 })

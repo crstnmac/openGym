@@ -65,6 +65,16 @@ describe('the rest timer across a reload', () => {
     expect(restOver).toHaveBeenCalledExactlyOnceWith(true, 'round')
   })
 
+  it('keeps the set phase too, so a restored rest before a warm-up set still says so', () => {
+    useUI.getState().startRest(45, 0, { kind: 'set', phase: 'warmup', forSet: 0 })
+    expect(saved()).toMatchObject({ kind: 'set', phase: 'warmup' })
+    const kept = localStorage.getItem(REST_KEY)
+    useUI.setState({ timer: null })                              // the reload
+    localStorage.setItem(REST_KEY, kept)
+    expect(restoreRest()).toBe(true)
+    expect(useUI.getState().timer).toMatchObject({ kind: 'set', phase: 'warmup' })
+  })
+
   it('a paused rest comes back held', () => {
     localStorage.setItem(REST_KEY, JSON.stringify({ endsAt: Date.now() - 5000, total: 90, forIdx: 0, kind: null, paused: true, left: 33 }))
     expect(restoreRest()).toBe(true)

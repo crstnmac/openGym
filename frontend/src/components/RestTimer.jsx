@@ -13,8 +13,12 @@ const clock = sec => Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '
 // the setting asks for one per kind. One word, and no exercise name: the label line is only as
 // wide as the clock's widest face (index.css #timer .lbl), which "Next exercise" overran in
 // English and most packs cut to the same first word. A rest with no kind (one started from the
-// wheel with nothing running) says "Rest".
+// wheel with nothing running) says "Rest". A rest before a warm-up (ramp) set says "Warm-up"
+// instead of "Set" (timer.phase, decided where the rest started from the set it leads into,
+// supersetFlow.restSetPhase). Rounds deliberately do not: a superset's members can be at
+// different phases.
 const KIND_LABEL = { set: 'Set', round: 'Round', block: 'Exercise' }
+const restLabel = timer => timer.kind === 'set' && timer.phase === 'warmup' ? 'Warm-up' : KIND_LABEL[timer.kind] || 'Rest'
 
 // The clock is a button: a tap opens the wheel at the time that is left, for a rest that wants
 // to be a round 2:00 rather than eight taps of +15. 0:00 ends the rest, like Skip. What is left
@@ -120,7 +124,7 @@ export default function RestTimer() {
   // (both labels share one cell, one of them hidden), and the clock keeps room for the other of
   // its two faces (data-alt, a hidden line in index.css): the row never reflows when the rest
   // turns Ready, so a thumb on +15 never lands on −15.
-  const label = timer.kind === 'switch' ? t('Switch sides') : timer.paused ? t('Paused') : t(KIND_LABEL[timer.kind] || 'Rest')
+  const label = timer.kind === 'switch' ? t('Switch sides') : timer.paused ? t('Paused') : t(restLabel(timer))
   return (
     <div id="timer" className={'rest' + (timer.paused ? ' paused' : '') + (timer.kind === 'switch' ? ' switch' : '') + (timer.ready ? ' ready' : '')}>
       <div className="bar" aria-hidden="true"><i style={{ width: pct + '%' }} /></div>

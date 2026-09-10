@@ -216,6 +216,8 @@ export const useUI = create((set, get) => ({
                        //   otherwise what the rest leads into — 'set' | 'round' | 'block'
                        //   (supersetFlow.restKind), which picks the rest-over sound when the
                        //   setting asks for one per kind
+                       // phase: 'warmup' when the set a rest leads into is a warm-up (ramp) set, else
+                       //   'work', on an exercise that has warm-up rows (supersetFlow.restSetPhase)
                        // forIdx: index of the active entry whose set started the rest (undefined when unknown)
                        // forSet: index of that set in the entry's rows, so removing the set stops its rest
                        // paused: held at `left`; `endsAt` means nothing until resumeRest sets it again
@@ -267,7 +269,7 @@ export const useUI = create((set, get) => ({
     if (get().toastMsg) runToast(set)
   },
 
-  startRest(sec, forIdx, { kind, forSet } = {}) {
+  startRest(sec, forIdx, { kind, forSet, phase } = {}) {
     get().stopRest()
     // Rest timer set to Off. Stopping and returning rather than starting a zero-length timer
     // keeps every caller honest: the four places that start a rest do not each need to know.
@@ -287,7 +289,7 @@ export const useUI = create((set, get) => ({
     // with no beep, no vibration and no flash. Each timer starts from where the page is now.
     pageHiddenAt = document.hidden ? Date.now() : null
     const endsAt = Date.now() + sec * 1000
-    set({ timer: { left: sec, total: sec, endsAt, forIdx, ...(forSet != null ? { forSet } : {}), ...(kind ? { kind } : {}) } })
+    set({ timer: { left: sec, total: sec, endsAt, forIdx, ...(forSet != null ? { forSet } : {}), ...(kind ? { kind } : {}), ...(phase ? { phase } : {}) } })
     bookRestEnd(endsAt, sec, kind)
     runRest(set, get)
   },
@@ -322,7 +324,7 @@ export const useUI = create((set, get) => ({
   addRest(sec) {
     const tm = get().timer
     if (!tm) return
-    if (tm.ready) { if (sec > 0) get().startRest(Math.min(sec, REST_MAX), tm.forIdx, { forSet: tm.forSet, kind: tm.kind }); else get().stopRest(); return }
+    if (tm.ready) { if (sec > 0) get().startRest(Math.min(sec, REST_MAX), tm.forIdx, { forSet: tm.forSet, kind: tm.kind, phase: tm.phase }); else get().stopRest(); return }
     // +15 s stops where the wheel does (15:00), so the two never disagree about a rest's length.
     if (sec > 0) sec = Math.min(sec, Math.max(0, REST_MAX - tm.left))
     if (!sec) return
@@ -351,7 +353,7 @@ export const useUI = create((set, get) => ({
   followNativeRest({ endsAt, left, total, paused }) {
     const tm = get().timer
     const forIdx = tm?.forIdx
-    const kind = { ...(tm?.kind ? { kind: tm.kind } : {}), ...(tm?.forSet != null ? { forSet: tm.forSet } : {}) }
+    const kind = { ...(tm?.kind ? { kind: tm.kind } : {}), ...(tm?.phase ? { phase: tm.phase } : {}), ...(tm?.forSet != null ? { forSet: tm.forSet } : {}) }
     if (paused) {
       stopRestTicking()
       set({ timer: { left, total, endsAt, forIdx, ...kind, paused: true } })
@@ -457,7 +459,7 @@ const saveRest = tm => {
   if (!ss) return
   try {
     if (!tm || tm.ready) ss.removeItem(REST_KEY)
-    else ss.setItem(REST_KEY, JSON.stringify({ endsAt: tm.endsAt, total: tm.total, forIdx: tm.forIdx ?? null, forSet: tm.forSet ?? null, kind: tm.kind || null, paused: !!tm.paused, left: tm.left }))
+    else ss.setItem(REST_KEY, JSON.stringify({ endsAt: tm.endsAt, total: tm.total, forIdx: tm.forIdx ?? null, forSet: tm.forSet ?? null, kind: tm.kind || null, phase: tm.phase || null, paused: !!tm.paused, left: tm.left }))
   } catch { /* the rest just does not outlive a reload */ }
 }
 export function restoreRest(now = Date.now()) {
@@ -468,7 +470,7 @@ export function restoreRest(now = Date.now()) {
   const total = Math.round(Number(saved.total))
   const ok = useStore.getState().S?.active && total > 0 && (saved.paused ? saved.left > 0 : saved.endsAt > now)
   if (!ok) { try { ss.removeItem(REST_KEY) } catch { /* nothing to drop */ } return false }
-  const base = { total, forIdx: saved.forIdx ?? undefined, ...(saved.forSet != null ? { forSet: saved.forSet } : {}), ...(saved.kind ? { kind: saved.kind } : {}) }
+  const base = { total, forIdx: saved.forIdx ?? undefined, ...(saved.forSet != null ? { forSet: saved.forSet } : {}), ...(saved.kind ? { kind: saved.kind } : {}), ...(saved.phase ? { phase: saved.phase } : {}) }
   if (saved.paused) {
     useUI.setState({ timer: { ...base, left: Math.round(saved.left), endsAt: saved.endsAt, paused: true } })
     if (MOBILE) holdRestAlert(Math.round(saved.left), total)
