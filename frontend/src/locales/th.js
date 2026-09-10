@@ -887,6 +887,8 @@ export default {
   'Logged sets stay with the original exercise. The replacement will be inserted afterward.': 'เซ็ตที่บันทึกแล้วจะอยู่กับท่าเดิม ท่าใหม่จะถูกแทรกไว้ถัดไป',
   'Rest after each set of this exercise. 0:00 means your default rest.': 'พักหลังแต่ละเซ็ตของท่านี้ ตั้งที่ 0:00 จะใช้เวลาพักค่าเริ่มต้นของคุณ',
   'Vibrate': 'การสั่น',
+  'Set': 'เซ็ต',
+  'Round': 'รอบ',
   'Weigh in before workouts': 'ชั่งน้ำหนักก่อนออกกำลังกาย',
   'Asks for your body weight when a workout starts. Off starts the session straight away.': 'ถามน้ำหนักตัวเมื่อเริ่มออกกำลังกาย ถ้าปิด เซสชันจะเริ่มทันที',
   'No weigh-ins yet. Log your weight to start the curve.': 'ยังไม่มีการชั่งน้ำหนัก บันทึกน้ำหนักเพื่อเริ่มกราฟได้เลย',

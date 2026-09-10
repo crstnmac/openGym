@@ -8,6 +8,14 @@ import Icon from './Icon.jsx'
 
 const clock = sec => Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0')
 
+// What a rest leads into, under the clock where "Rest" was: the kind decided where the rest
+// started (timer.kind, supersetFlow.restKind) — the same kind that picks the rest-over sound when
+// the setting asks for one per kind. One word, and no exercise name: the label line is only as
+// wide as the clock's widest face (index.css #timer .lbl), which "Next exercise" overran in
+// English and most packs cut to the same first word. A rest with no kind (one started from the
+// wheel with nothing running) says "Rest".
+const KIND_LABEL = { set: 'Set', round: 'Round', block: 'Exercise' }
+
 // The clock is a button: a tap opens the wheel at the time that is left, for a rest that wants
 // to be a round 2:00 rather than eight taps of +15. 0:00 ends the rest, like Skip. What is left
 // is read again at Done, since the rest kept counting while the wheel was open. Done on a wheel
@@ -112,7 +120,7 @@ export default function RestTimer() {
   // (both labels share one cell, one of them hidden), and the clock keeps room for the other of
   // its two faces (data-alt, a hidden line in index.css): the row never reflows when the rest
   // turns Ready, so a thumb on +15 never lands on −15.
-  const label = timer.kind === 'switch' ? t('Switch sides') : timer.paused ? t('Paused') : t('Rest')
+  const label = timer.kind === 'switch' ? t('Switch sides') : timer.paused ? t('Paused') : t(KIND_LABEL[timer.kind] || 'Rest')
   return (
     <div id="timer" className={'rest' + (timer.paused ? ' paused' : '') + (timer.kind === 'switch' ? ' switch' : '') + (timer.ready ? ' ready' : '')}>
       <div className="bar" aria-hidden="true"><i style={{ width: pct + '%' }} /></div>

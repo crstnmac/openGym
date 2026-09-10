@@ -445,6 +445,8 @@ export default {
   '0.25': '0.25',
   'Rest timer': '休息计时',
   'Vibrate': '振动',
+  'Set': '组',
+  'Round': '轮',
   'Weigh in before workouts': '训练前称重',
   'Asks for your body weight when a workout starts. Off starts the session straight away.': '开始训练时询问体重。关闭后直接进入训练。',
   'No weigh-ins yet. Log your weight to start the curve.': '还没有称重记录。记一下体重，曲线就开始了。',

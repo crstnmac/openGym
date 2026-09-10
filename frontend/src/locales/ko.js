@@ -445,6 +445,8 @@ export default {
   '0.25': '0.25',
   'Rest timer': '휴식 타이머',
   'Vibrate': '진동',
+  'Set': '세트',
+  'Round': '라운드',
   'Weigh in before workouts': '운동 전 체중 기록',
   'Asks for your body weight when a workout starts. Off starts the session straight away.': '운동을 시작할 때 체중을 물어봅니다. 끄면 세션이 바로 시작됩니다.',
   'No weigh-ins yet. Log your weight to start the curve.': '아직 체중 기록이 없어요. 체중을 기록하면 그래프가 시작돼요.',

@@ -16,7 +16,7 @@ import { pinState } from '../lib/queue.js'
 import { t, tn, exerciseNameFor, exerciseNameClass } from '../lib/i18n.js'
 import { api, beacon } from '../lib/api.js'
 import { pyramidRestFor, maxRecordAt, isPyramid, pyramidLabel } from '../lib/pyramid.js'
-import { insertionIndexAfterCurrentUnit, nextUnfinishedUnit, setProgressHighWater, supersetFlowStep, restAfterSet, restOnRecheck, restSecFor, warmupRestSecFor, restKind } from '../lib/supersetFlow.js'
+import { insertionIndexAfterCurrentUnit, nextUnfinishedUnit, setProgressHighWater, supersetFlowStep, restAfterSet, restOnRecheck, restSecFor, warmupRestSecFor, restKind, restFocusIdx } from '../lib/supersetFlow.js'
 import Media from '../components/Media.jsx'
 import WorkoutThumb, { hasWorkoutMedia } from '../components/WorkoutThumb.jsx'
 import { workoutSettingsSheet } from '../components/WorkoutSettingsSheet.jsx'
@@ -1068,6 +1068,33 @@ function ActiveWorkout() {
     return () => cancel(frame)
   }, [workoutView])
 
+  // When a rest starts in the List and Compact layouts, bring the exercise it points you at
+  // (supersetFlow.restFocusIdx: the one its label — Set, Round, Exercise — means) into view — its
+  // first unfinished set row when there is one, the exercise otherwise — so the bar at the bottom
+  // and the thing it is timing are on screen together. The Cards layout only ever shows the
+  // current unit. Keyed on the rest's start, endsAt − total: a tick, ±15 s on a running rest
+  // (which moves both) and forIdx moving when an exercise is added or removed mid-rest leave it
+  // alone, so none of those scrolls. A resume after a pause, and ±15 s while paused, move only
+  // one of the two and do scroll again. Rating a set closes the effort sheet and ticks the set in
+  // one tap, and the sheet puts the page back where it stood for a third of a second after that:
+  // the scroll waits for it (afterScrollRestore), as the superset card's does, or it is undone on
+  // the spot.
+  const restStart = useUI(s => s.timer && s.timer.forIdx != null ? s.timer.endsAt - s.timer.total * 1000 : null)
+  useEffect(() => {
+    if (!restStart || !listMode) return
+    return afterScrollRestore(() => {
+      const tm = useUI.getState().timer
+      if (!tm || tm.forIdx == null) return
+      // What the newest render shows (`shown`, above): the ref maps are keyed by its entries.
+      const { entries } = shown.current
+      const entry = entries[restFocusIdx(entries, supersetUnits(entries), tm.forIdx, tm.kind)]
+      if (!entry) return
+      const setIdx = entry.sets.findIndex(s => !s.done)
+      const el = (setIdx >= 0 && setRefs.current.get(entry)?.get(setIdx)) || exRefs.current.get(entry)
+      if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }, [restStart, listMode])
+
   const total = setUnitsTotal(A.entries)
   const done = setsDoneActive(A)
 
@@ -1758,7 +1785,8 @@ function ActiveWorkout() {
         {units.map((u, ui) => {
           const multi = u.length > 1
           const isCur = u.includes(cur)
-          return <section key={u.join('-')} className={'wl-unit' + (isCur ? ' cur' : '')} data-exidx={u[0]}>
+          // Superset members bind their own refs below; a lone exercise is anchored by its section.
+          return <section key={u.join('-')} ref={multi ? undefined : el => bindExRef(A.entries[u[0]], el)} className={'wl-unit' + (isCur ? ' cur' : '')} data-exidx={u[0]}>
             <div className="wl-hd">
               <span className="muted small">{multi ? t('Superset {0} / {1}', ui + 1, units.length) : t('Exercise {0} / {1}', ui + 1, units.length)}</span>
               {isCur
@@ -1781,7 +1809,7 @@ function ActiveWorkout() {
                 })}
               </div>
             ) : (
-              <ExerciseBlock entryIdx={u[0]} dense={dense}
+              <ExerciseBlock entryIdx={u[0]} dense={dense} onSetRowRef={(setIdx, el) => bindSetRef(A.entries[u[0]], setIdx, el)}
                 onPairPrev={u[0] > 0 ? () => pairAt(u[0] - 1, u[0]) : null}
                 onPairNext={u[0] < A.entries.length - 1 ? () => pairAt(u[0], u[0] + 1) : null}
                 {...blockProps(u[0])} />

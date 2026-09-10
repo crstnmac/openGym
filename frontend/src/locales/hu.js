@@ -879,6 +879,8 @@ export default {
   'Logged sets stay with the original exercise. The replacement will be inserted afterward.': 'A naplózott sorozatok az eredeti gyakorlatnál maradnak. A csere utána kerül beszúrásra.',
   'Rest after each set of this exercise. 0:00 means your default rest.': 'Pihenő a gyakorlat minden sorozata után. 0:00 esetén az alapértelmezett pihenőd érvényes.',
   'Vibrate': 'Rezgés',
+  'Set': 'Sorozat',
+  'Round': 'Kör',
   'Weigh in before workouts': 'Súlymérés edzés előtt',
   'Asks for your body weight when a workout starts. Off starts the session straight away.': 'Edzés indításakor rákérdez a testsúlyodra. Kikapcsolva az edzés azonnal indul.',
   'No weigh-ins yet. Log your weight to start the curve.': 'Még nincs mérés. Rögzítsd a súlyodat a görbe indításához.',

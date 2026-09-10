@@ -445,6 +445,8 @@ export default {
   '0.25': '0,25',
   'Rest timer': 'Minutnik przerwy',
   'Vibrate': 'Wibracje',
+  'Set': 'Seria',
+  'Round': 'Runda',
   'Weigh in before workouts': 'Ważenie przed treningiem',
   'Asks for your body weight when a workout starts. Off starts the session straight away.': 'Pyta o Twoją masę ciała przy rozpoczęciu treningu. Gdy wyłączone, sesja zaczyna się od razu.',
   'No weigh-ins yet. Log your weight to start the curve.': 'Brak pomiarów wagi. Zapisz wagę, aby zacząć krzywą.',

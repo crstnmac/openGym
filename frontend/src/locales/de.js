@@ -460,6 +460,8 @@ export default {
   '0.25': '0,25',
   'Rest timer': 'Pausen-Timer',
   'Vibrate': 'Vibration',
+  'Set': 'Satz',
+  'Round': 'Runde',
   'Weigh in before workouts': 'Vor dem Training wiegen',
   'Asks for your body weight when a workout starts. Off starts the session straight away.': 'Fragt beim Start eines Trainings nach deinem Körpergewicht. Aus startet die Einheit direkt.',
   'No weigh-ins yet. Log your weight to start the curve.': 'Noch keine Einträge. Trag dein Gewicht ein, um die Kurve zu starten.',

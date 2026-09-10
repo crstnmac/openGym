@@ -435,6 +435,8 @@ export default {
   '0.25': '0,25',
   'Rest timer': 'Таймер отдыха',
   'Vibrate': 'Вибрация',
+  'Set': 'Подход',
+  'Round': 'Круг',
   'Weigh in before workouts': 'Взвешивание перед тренировкой',
   'Asks for your body weight when a workout starts. Off starts the session straight away.': 'Спрашивает ваш вес при начале тренировки. Если выключено, сессия начинается сразу.',
   'No weigh-ins yet. Log your weight to start the curve.': 'Взвешиваний пока нет. Внеси вес, и кривая начнётся.',

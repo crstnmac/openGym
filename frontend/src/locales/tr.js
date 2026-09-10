@@ -445,6 +445,8 @@ export default {
   '0.25': '0,25',
   'Rest timer': 'Dinlenme sayacı',
   'Vibrate': 'Titreşim',
+  'Set': 'Set',
+  'Round': 'Tur',
   'Weigh in before workouts': 'Antrenman öncesi tartılma',
   'Asks for your body weight when a workout starts. Off starts the session straight away.': 'Antrenman başlarken kilonu sorar. Kapalıyken seans hemen başlar.',
   'No weigh-ins yet. Log your weight to start the curve.': 'Henüz tartı kaydı yok. Eğriyi başlatmak için kilonu gir.',
