@@ -546,6 +546,25 @@ describe('Workout set completion flow', () => {
     expect(mocks.startRest).toHaveBeenLastCalledWith(90, 0, { kind: 'block', phase: null, forSet: 1 })
   })
 
+  it('a hold\'s end and its hand-over use the newest render, not the one that started it', async () => {
+    await mount([hold('plank', [false, false])])
+    await pressStart(0)
+    mocks.S.restSec = 120                                        // changed in Settings while the hold ran
+    await rerender()
+    await act(async () => { mocks.startWork.mock.calls[0][2](30) })
+    expect(mocks.startRest).toHaveBeenLastCalledWith(120, 0, { kind: 'set', phase: null, forSet: 0, hand: { chain: { id: 'plank', i: 1, n: 2 } } })
+  })
+
+  it('a hold whose row now belongs to another exercise writes nothing', async () => {
+    await mount([hold('plank', [false, false])])
+    await pressStart(0)
+    mocks.S.active.entries[0] = hold('swapped-in', [false, false])   // the exercise was swapped mid-hold
+    await rerender()
+    await act(async () => { mocks.startWork.mock.calls[0][2](30) })
+    expect(mocks.S.active.entries[0].sets[0].done).toBe(false)
+    expect(mocks.startRest).not.toHaveBeenCalled()
+  })
+
   it('in a superset a finished hold hands over nothing', async () => {
     await mount([hold('plank', [false, false], { sg: 'g' }), hold('side-plank', [false, false], { sg: 'g' })], 0)
     await pressStart(0)
@@ -2541,5 +2560,37 @@ describe('the workout screen chrome (v1.3.11)', () => {
     await unmount()
     await mount([exercise('plain-bench', [false])], 0, { gifSize: 'mini', active: { workoutView: 'compact' } })
     expect(container.querySelector('.wthumb')).toBeNull()
+  })
+})
+
+// An exercise added while a hold runs goes in after the current unit, and in the List layout the
+// hold can be on an exercise below that point (#165 review). The hold's row then moves down one,
+// and its end has to land there, not on the exercise that took its old place.
+describe('a hold on an exercise below where one is added', () => {
+  const timed = (id, sec = 30) => exercise(id, [false, false], {
+    target: { mode: 'time', sec, weight: 0, bodyweight: true },
+    sets: [{ sec, w: 0, done: false }, { sec, w: 0, done: false }],
+  })
+  const pressStart = async (index = 0) => {
+    const button = container.querySelectorAll('button.setgo')[index]
+    expect(button).toBeTruthy()
+    await act(async () => { button.dispatchEvent(new dom.Event('click', { bubbles: true })) })
+    await rerender()
+  }
+
+  it('writes its seconds to its own moved row and ticks that, not the added exercise', async () => {
+    await mount([exercise('first', [false]), timed('held', 45)], 0, { workoutView: 'list' })
+    await pressStart(0)                                          // the plank's first hold, cur stays on 'first'
+    const holdDone = mocks.startWork.mock.calls[0][2]
+    await addExerciseThroughSheets({ id: 'inserted' })
+    expect(mocks.S.active.entries.map(e => e.id)).toEqual(['first', 'inserted', 'held'])
+    await rerender()
+
+    await act(async () => { holdDone(30, { chimed: true }) })   // the countdown ran out
+
+    const added = mocks.S.active.entries[1].sets[0]
+    expect(added.done).toBe(false)
+    expect(added.sec).toBeUndefined()
+    expect(mocks.S.active.entries[2].sets[0]).toMatchObject({ sec: 30, done: true })
   })
 })

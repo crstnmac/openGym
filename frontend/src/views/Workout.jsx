@@ -749,6 +749,10 @@ let flashSeq = 0
 // UI state written from here and from effects; a test that stubs the UI store without setState
 // simply does not see it.
 const setUI = patch => useUI.setState?.(patch)
+// An exercise added at `at` moves every exercise from there down by one, and a running hold's
+// row with them: in the List layout the hold can be on an exercise below where the new one goes
+// (after the current unit). Its saved owner moves in useUI.shiftRestOwner, called beside this.
+const shiftHoldExercise = (at, by) => { if (holdAt && holdAt.idx >= at) holdAt = { ...holdAt, idx: holdAt.idx + by } }
 const shiftRowRefs = (idx, from, by) => {
   if (holdAt && holdAt.idx === idx && holdAt.i >= from) holdAt = { ...holdAt, i: holdAt.i + by }
   // The hold's saved owner (useUI.work.owner, what a reload brings it back to) moves with it.
@@ -832,6 +836,30 @@ export function copyActiveSet(idx, i) {
 }
 
 /* ---------- active workout ---------- */
+// The newest render's handlers, for callbacks that fire long after the render that made them: a
+// hold's end and a rest's hand-over must judge the workout as it is then, not as it was — and if
+// the view was left and re-entered in between, the instance that is on screen now must answer.
+let latest = {}
+
+// A timed exercise runs itself once started: hold → rest → next hold, until its sets are done.
+// The rest carries where it leads (timer.hand.chain: entry id, row, row count), and useUI hands
+// it back here when the rest is over with its owner index as it is then. The workout may have
+// moved on meanwhile: the exercise must still be the same one, still timed, still alone in its
+// unit, with the same rows, that row still undone and no hold running.
+const chainHold = (chain, forIdx) => {
+  const S2 = useStore.getState().S
+  const e = forIdx != null ? S2.active?.entries[forIdx] : null
+  if (!chain || !e || e.id !== chain.id || modeOf({ ...(e.target || {}), id: e.id }) !== 'time') return
+  if (e.sets.length !== chain.n || !e.sets[chain.i] || e.sets[chain.i].done || useUI.getState().work) return
+  if (unitOf(supersetUnits(S2.active.entries), forIdx).length !== 1) return
+  latest.startTimed?.(forIdx, chain.i)
+}
+// What a rest hands over to once it is over (useUI.bindRest). Bound once, here, rather than by a
+// mounted screen: the workout view unmounts on every tab switch, and a rest restored at boot
+// (gym_rest) has to find it whichever screen the app opens on.
+export function restHandOver(tm) { chainHold(tm.hand?.chain, tm.forIdx) }
+useUI.getState().bindRest?.(restHandOver)
+
 export function removeActiveExercise(idx) {
   // Clear the work callback before indexes can shift. This also protects a confirmation sheet
   // that was opened first and confirmed after a timed hold started.
@@ -916,9 +944,6 @@ function ActiveWorkout() {
   // distinct, while each rendered set index identifies the existing row within that entry.
   const exRefs = useRef(new Map())
   const setRefs = useRef(new Map())
-  // The newest render's handlers, for callbacks that fire long after the render that made them:
-  // a hold's end and a rest's hand-over must judge the workout as it is then, not as it was.
-  const latest = useRef({})
   const bindExRef = (entry, el) => {
     if (el) exRefs.current.set(entry, el)
     else {
@@ -1345,6 +1370,7 @@ function ActiveWorkout() {
       s.active.entries.splice(insertAt, 0, joinSessionNoProg(s.active, { id: ex.id, ...built, ...(curRid ? { rid: curRid } : {}), ...(noProg ? { noProg: true } : {}) }))
       s.active.cur = insertAt
       useUI.getState().shiftRestOwner(insertAt, 1)
+      shiftHoldExercise(insertAt, 1)
     })
     // The "+" on a picker row reads as "add this now" — routed through the same detail
     // sheet before, so it added nothing until you'd scrolled past it and found the real
@@ -1527,10 +1553,11 @@ function ActiveWorkout() {
   // What a hold hands back to its row: on its end, its Done, or a rest displacing it. Also bound
   // again to a hold restored after a reload (useUI.bindWork, below).
   const holdDone = (owner, plan) => (elapsed, { abandoned = false, chimed = false } = {}) => {
-    const { idx } = owner
-    // The row may have moved while the hold ran (a set copied or removed above it): write to
-    // where it is now. holdAt is that place (deleteActiveSet, copyActiveSet).
+    // The row may have moved while the hold ran (a set copied or removed above it, an exercise
+    // added above its own): write to where it is now. holdAt is that place (deleteActiveSet,
+    // copyActiveSet, shiftHoldExercise).
     const mine = holdAt?.owner === owner
+    const idx = mine ? holdAt.idx : owner.idx
     const i = mine ? holdAt.i : owner.i
     if (mine) holdAt = null
     // Checked by id: the list may have been edited while the hold ran, and a hold must never be
@@ -1551,7 +1578,7 @@ function ActiveWorkout() {
     }
     mutEntry(idx, x => { x.sets[i].sec = elapsed; delete x.sets[i].planSec })
     // `fromHold`: the hold ended by itself or by its Done, which is what lets it chain the next one.
-    if (!useStore.getState().S.active.entries[idx].sets[i].done) latest.current.toggle(idx, i, undefined, { quiet: chimed, fromHold: true })
+    if (!useStore.getState().S.active.entries[idx].sets[i].done) latest.toggle(idx, i, undefined, { quiet: chimed, fromHold: true })
   }
   // A hold that came back from a reload has no handler yet: this screen gives it its own.
   const holdDoneRef = useRef(holdDone)
@@ -1565,22 +1592,6 @@ function ActiveWorkout() {
       return (...a) => holdDoneRef.current(owner, wk.total)(...a)
     })
   }, [])
-
-  // A timed exercise runs itself once started: hold → rest → next hold, until its sets are done.
-  // The rest carries where it leads (timer.hand.chain: entry id, row, row count), and useUI hands
-  // it back here when the rest is over (bindRest, below) with its owner index as it is then. The
-  // workout may have moved on meanwhile: the exercise must still be the same one, still timed,
-  // still alone in its unit, with the same rows, that row still undone and no hold running.
-  const chainHold = (chain, forIdx) => {
-    const S2 = useStore.getState().S
-    const e = forIdx != null ? S2.active?.entries[forIdx] : null
-    if (!chain || !e || e.id !== chain.id || modeOf({ ...(e.target || {}), id: e.id }) !== 'time') return
-    if (e.sets.length !== chain.n || !e.sets[chain.i] || e.sets[chain.i].done || useUI.getState().work) return
-    if (unitOf(supersetUnits(S2.active.entries), forIdx).length !== 1) return
-    latest.current.startTimed(forIdx, chain.i)
-  }
-  const restHandOver = tm => chainHold(tm.hand?.chain, tm.forIdx)
-  useEffect(() => { useUI.getState().bindRest?.(tm => latest.current.restHandOver(tm)) }, [])
 
   // `quiet`: the hold that ticks this set has just ended with the chime and its buzz pattern
   // (store/useUI.js). The tick's own beep would sound over the chime's first note and clip it,
@@ -1707,7 +1718,7 @@ function ActiveWorkout() {
     }
   }
 
-  latest.current = { toggle, startTimed, restHandOver }
+  latest = { toggle, startTimed }
 
   // Hardware keys (issue #133, lib/workout-keys.js): Space or Enter ticks the next set, ← and →
   // switch exercise. The listener is added once and calls the handler of the latest render, so
