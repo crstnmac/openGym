@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Workout from './Workout.jsx'
 import { DEF, useStore } from '../store/useStore.js'
-import { useUI } from '../store/useUI.js'
+import { useUI, restoreWork, restoreRest, WORK_KEY, REST_KEY } from '../store/useUI.js'
 import { beep, chime, vibrate, alertBuzz } from '../lib/sound.js'
 
 vi.mock('../lib/sound.js', () => ({ beep: vi.fn(), chime: vi.fn(), vibrate: vi.fn(), alertBuzz: vi.fn(), restOver: vi.fn(), unlock: vi.fn() }))
@@ -21,11 +21,12 @@ const plank = () => ({ id: '1001', target: { mode: 'time', sets: 2, sec: 10 }, s
 let root
 let container
 
-function renderWorkout(entries) {
+function renderWorkout(entries, beforeRender) {
   const S = clone(DEF)
   S.sound = true
   S.active = { id: 'hold-test', d: '2026-09-23', start: Date.now(), routineId: null, name: 'Hold', bw: null, cur: 0, entries }
   useStore.setState({ S, user: null })
+  beforeRender?.()
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
@@ -120,10 +121,62 @@ describe('a per-side hold', () => {
     expect(tm.total).toBe(useStore.getState().S.restSec)
   })
 
+  // Settings decided (#165): when the exercise runs itself, the right side starts itself when the
+  // switch pause ends — left hold, switch pause, right hold, then the set's rest, from one tap.
+  it('run from its first hold: left, switch, right, the set\'s rest, the next left, all from one tap', () => {
+    renderWorkout([sidePlank()])
+    holdRow(0)                                                   // left held to the end
+    expect(useUI.getState().timer).toMatchObject({ kind: 'switch', total: 10 })
+    act(() => { vi.advanceTimersByTime(10_000) })                // the switch pause runs out
+    expect(useUI.getState().timer).toBeNull()
+    expect(useUI.getState().work).toMatchObject({ total: 10, owner: { idx: 0, i: 1 } })   // the right side, by itself
+    act(() => { vi.advanceTimersByTime(11_000) })
+    expect(doneOf()).toEqual([true, true, false, false])
+    const tm = useUI.getState().timer
+    expect(tm).toMatchObject({ kind: 'set', total: useStore.getState().S.restSec, hand: { chain: { i: 2 } } })
+    act(() => { vi.advanceTimersByTime(tm.total * 1000) })       // the set's rest runs out
+    expect(useUI.getState().work).toMatchObject({ owner: { idx: 0, i: 2 } })               // the next left
+  })
+
+  it('a left side ticked by hand still waits for a tap on the right', () => {
+    renderWorkout([sidePlank()])
+    const tick = container.querySelectorAll('[role="checkbox"]')[0]
+    act(() => tick.click())
+    expect(useUI.getState().timer).toMatchObject({ kind: 'switch' })
+    act(() => { vi.advanceTimersByTime(10_000) })
+    expect(useUI.getState().timer).toBeNull()
+    expect(useUI.getState().work).toBeNull()
+  })
+
   it('Left and Right pills carry both words, so they are one width (#322)', () => {
     renderWorkout([sidePlank()])
     const pills = [...container.querySelectorAll('.sidepill')]
     expect(pills.map(p => p.textContent)).toEqual(['Left', 'Right', 'Left', 'Right'])
     for (const p of pills) expect([p.dataset.l, p.dataset.r]).toEqual(['Left', 'Right'])
+  })
+})
+
+// Settings decided (#165): a reload keeps the chain. A rest is kept with where it hands over to
+// (gym_rest), a hold with its row (gym_work), and the workout screen acts on both once it is back.
+describe('a timed exercise that runs itself, across a reload', () => {
+  it('a restored hold still hands its rest the next hold', () => {
+    renderWorkout([plank()], () => {
+      localStorage.setItem(WORK_KEY, JSON.stringify({ endsAt: Date.now() + 5_000, total: 10, label: 'Plank', overtime: false, owner: { idx: 0, i: 0, id: '1001' } }))
+      expect(restoreWork()).toBe(true)
+    })
+    act(() => { vi.advanceTimersByTime(6_000) })
+    expect(doneOf()).toEqual([true, false])
+    expect(useUI.getState().timer).toMatchObject({ kind: 'set', hand: { chain: { id: '1001', i: 1, n: 2 } } })
+  })
+
+  it('a restored rest still starts the next hold when it runs out', () => {
+    const entries = [plank()]
+    entries[0].sets[0].done = true
+    renderWorkout(entries, () => {
+      localStorage.setItem(REST_KEY, JSON.stringify({ endsAt: Date.now() + 5_000, total: 90, forIdx: 0, forSet: 0, kind: 'set', hand: { chain: { id: '1001', i: 1, n: 2 } }, paused: false, left: 5 }))
+      expect(restoreRest()).toBe(true)
+    })
+    act(() => { vi.advanceTimersByTime(6_000) })
+    expect(useUI.getState().work).toMatchObject({ owner: { idx: 0, i: 1, id: '1001' } })
   })
 })

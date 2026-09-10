@@ -75,6 +75,23 @@ describe('the rest timer across a reload', () => {
     expect(useUI.getState().timer).toMatchObject({ kind: 'set', phase: 'warmup' })
   })
 
+  it('keeps what the rest hands over to, and a restored rest hands it over at its end', () => {
+    const hand = { chain: { id: 'plank', i: 1, n: 3 } }
+    const done = vi.fn()
+    useUI.getState().bindRest(done)
+    useUI.getState().startRest(60, 0, { kind: 'set', forSet: 0, hand })
+    expect(saved()).toMatchObject({ hand })
+    const kept = localStorage.getItem(REST_KEY)
+    useUI.setState({ timer: null })                              // the reload
+    localStorage.setItem(REST_KEY, kept)
+    expect(restoreRest()).toBe(true)
+    expect(useUI.getState().timer).toMatchObject({ forIdx: 0, hand })
+    vi.advanceTimersByTime(61_000)
+    expect(done).toHaveBeenCalledTimes(1)
+    expect(done.mock.calls[0][0]).toMatchObject({ forIdx: 0, hand })
+    useUI.getState().bindRest(null)
+  })
+
   it('a paused rest comes back held', () => {
     localStorage.setItem(REST_KEY, JSON.stringify({ endsAt: Date.now() - 5000, total: 90, forIdx: 0, kind: null, paused: true, left: 33 }))
     expect(restoreRest()).toBe(true)

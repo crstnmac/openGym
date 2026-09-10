@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useUI } from '../store/useUI.js'
+import { useStore } from '../store/useStore.js'
+import { holdPosition } from '../lib/workout-model.js'
 import { t } from '../lib/i18n.js'
 import { REST_MAX } from '../lib/duration.js'
 import { durationSheet } from './DurationWheel.jsx'
@@ -19,6 +21,17 @@ const clock = sec => Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '
 // different phases.
 const KIND_LABEL = { set: 'Set', round: 'Round', block: 'Exercise' }
 const restLabel = timer => timer.kind === 'set' && timer.phase === 'warmup' ? 'Warm-up' : KIND_LABEL[timer.kind] || 'Rest'
+// The hold's label follows the same rule: what is timed, short — which hold of the exercise it
+// is, warm-up holds counted apart, a per-side pair as one set, as the set rows number them.
+// Read off the hold's owner (work.owner, the row it writes to, kept current when rows move), so
+// a hold restored after a reload says it too.
+const holdLabel = (S, work) => {
+  const o = work?.owner
+  const e = o ? S.active?.entries?.[o.idx] : null
+  const pos = e && e.id === o.id ? holdPosition(e.sets, o.i) : null
+  if (!pos) return t('Hold')
+  return pos.phase === 'warmup' ? t('Warm-up hold {0} of {1}', pos.n, pos.of) : t('Hold {0} of {1}', pos.n, pos.of)
+}
 
 // The clock is a button: a tap opens the wheel at the time that is left, for a rest that wants
 // to be a round 2:00 rather than eight taps of +15. 0:00 ends the rest, like Skip. What is left
@@ -44,7 +57,7 @@ export function applyRestLeft(v, opened) {
   const ui = useUI.getState()
   const now = ui.timer
   if (!now) { if (v > 0) ui.startRest(v); return }
-  if (v <= 0) { ui.stopRest(); return }
+  if (v <= 0) { ui.skipRest(); return }
   if (now.ready) { ui.addRest(v); return }
   if (v !== now.left) ui.addRest(v - now.left)
 }
@@ -91,7 +104,8 @@ function useSkipFits(actsRef, deps) {
 export default function RestTimer() {
   const timer = useUI(s => s.timer)
   const work = useUI(s => s.work)
-  const { addRest, stopRest, pauseRest, resumeRest, finishWorkEarly, stopWork } = useUI()
+  const { addRest, skipRest, pauseRest, resumeRest, finishWorkEarly, stopWork } = useUI()
+  const holdLbl = useStore(s => (work ? holdLabel(s.S, work) : ''))
   const on = work || timer
   const actsRef = useRef(null)
   const skipFits = useSkipFits(actsRef, [!!timer && !work, t('Skip'), t('Dismiss')])
@@ -109,7 +123,7 @@ export default function RestTimer() {
       <div className="bar" aria-hidden="true"><i style={{ width: pct + '%' }} /></div>
       <div className="tclock">
         <span className="t">{work.left <= 0 && work.overtime ? '+' + clock(-work.left) : clock(work.left)}</span>
-        {work.label && <span className="lbl">{work.label}</span>}
+        <span className="lbl">{holdLbl}</span>
       </div>
       <div className="acts">
         <Button size="sm" onClick={stopWork}>{t('Cancel')}</Button>
@@ -141,7 +155,7 @@ export default function RestTimer() {
           : <Button size="sm" className="pause" icon={timer.paused ? 'play' : 'pause'}
             aria-label={t(timer.paused ? 'Resume' : 'Pause')} aria-pressed={!!timer.paused}
             onClick={timer.paused ? resumeRest : pauseRest} />}
-        <button type="button" className={'btn primary sm skip' + (skipFits ? '' : ' icon-only')} onClick={stopRest}
+        <button type="button" className={'btn primary sm skip' + (skipFits ? '' : ' icon-only')} onClick={skipRest}
           aria-label={skipFits ? undefined : t(timer.ready ? 'Dismiss' : 'Skip')}>
           {skipFits
             ? <span><span className="on">{t(timer.ready ? 'Dismiss' : 'Skip')}</span>

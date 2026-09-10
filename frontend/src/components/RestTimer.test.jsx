@@ -83,6 +83,41 @@ describe('rest timer bar: what it is timing', () => {
     expect(label()).toBe('Round')
   })
 
+  it('a hold says which hold of the exercise it is, warm-up holds apart, a per-side pair as one set', () => {
+    const S = useStore.getState().S
+    useStore.setState({ S: { ...S, active: { ...S.active, entries: [
+      { id: 'plank', target: { mode: 'time', sec: 45 }, sets: [{ sec: 20, phase: 'warmup' }, { sec: 45 }, { sec: 45 }, { sec: 45 }] },
+      { id: 'side-plank', target: { mode: 'time', sec: 30 }, sets: [{ sec: 30, side: 'L' }, { sec: 30, side: 'R' }, { sec: 30, side: 'L' }, { sec: 30, side: 'R' }] },
+    ] } } })
+    act(() => { useUI.getState().startWork(45, 'Plank', vi.fn(), { idx: 0, i: 2, id: 'plank' }) })
+    mount()
+    expect(host.querySelector('#timer').className).toBe('working')
+    expect(label()).toBe('Hold 2 of 3')
+    act(() => { useUI.getState().startWork(20, 'Plank', vi.fn(), { idx: 0, i: 0, id: 'plank' }) })
+    expect(label()).toBe('Warm-up hold 1 of 1')
+    act(() => { useUI.getState().startWork(30, 'Side plank', vi.fn(), { idx: 1, i: 3, id: 'side-plank' }) })
+    expect(label()).toBe('Hold 2 of 2')
+  })
+
+  it('a hold with no row of its own, or one whose row is gone, just says Hold', () => {
+    act(() => { useUI.getState().startWork(45, 'Plank', vi.fn()) })
+    mount()
+    expect(label()).toBe('Hold')
+    act(() => { useUI.getState().startWork(45, 'Plank', vi.fn(), { idx: 0, i: 0, id: 'not-this-exercise' }) })
+    expect(label()).toBe('Hold')
+  })
+
+  it('Skip ends the rest early and hands over, like the rest running out', () => {
+    const done = vi.fn()
+    useUI.getState().bindRest(done)
+    act(() => { useUI.getState().startRest(90, 0, { kind: 'set', hand: { chain: { id: '0025', i: 0, n: 1 } } }) })
+    mount()
+    act(() => { host.querySelector('#timer .acts .skip').click() })
+    expect(useUI.getState().timer).toBe(null)
+    expect(done).toHaveBeenCalledTimes(1)
+    useUI.getState().bindRest(null)
+  })
+
   it('renders nothing and drops the resting class when no timer runs', () => {
     act(() => { useUI.getState().startRest(60, 0, { kind: 'set' }) })
     mount()

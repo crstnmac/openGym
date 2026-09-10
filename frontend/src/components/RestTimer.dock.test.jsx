@@ -133,12 +133,23 @@ describe('the docked rest bar', () => {
     expect(useUI.getState().timer.ready).toBeUndefined()
   })
 
+  it('0:00 on the wheel hands over like Skip', () => {
+    const done = vi.fn()
+    useUI.getState().bindRest(done)
+    act(() => useUI.getState().startRest(30, 1, { kind: 'set', hand: { chain: { id: 'x', i: 1, n: 2 } } }))
+    act(() => applyRestLeft(0))
+    expect(useUI.getState().timer).toBeNull()
+    expect(done).toHaveBeenCalledTimes(1)
+    useUI.getState().bindRest(null)
+  })
+
   it('a fresh rest from Ready keeps what the old one led into, like +15 s does', () => {
-    act(() => useUI.getState().startRest(1, 2, { kind: 'block', forSet: 4 }))
+    const hand = { chain: { id: 'x', i: 1, n: 2 } }
+    act(() => useUI.getState().startRest(1, 2, { kind: 'block', forSet: 4, hand }))
     act(() => vi.advanceTimersByTime(1000))
     expect(useUI.getState().timer.ready).toBe(true)
     act(() => applyRestLeft(45))
-    expect(useUI.getState().timer).toMatchObject({ left: 45, forIdx: 2, forSet: 4, kind: 'block' })
+    expect(useUI.getState().timer).toMatchObject({ left: 45, forIdx: 2, forSet: 4, kind: 'block', hand })
   })
 
   it('Done on an untouched wheel leaves the rest alone', () => {

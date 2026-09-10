@@ -90,6 +90,13 @@ const runToast = set => {
 }
 let timerInt = null
 let timerTick = null
+// What a rest hands over to when it is over (Workout.jsx restHandOver: a timed exercise's next
+// hold). The rest carries it as data (timer.hand), so it outlives the render that started the
+// rest and is kept with the rest across a reload (gym_rest); the workout screen binds the one
+// function that acts on it (bindRest). Fires when the rest runs out on screen or is skipped —
+// never when it ran out while the app was hidden (a hold nobody watched start would still be
+// logged), never on a plain stopRest(), never twice: a rest on Ready has had its turn.
+let handOver = null
 let workInt = null
 let workTick = null
 let workDone = null
@@ -174,6 +181,8 @@ const runRest = (set, get) => {
       if (seenLive) { chime(snd, classicChime); alertBuzz([200, 100, 200]); get().flashTimer() }
       stopRestTicking()
       set({ timer: null })
+      // A timed exercise that runs itself: the other side's hold (Workout.jsx toggle).
+      if (seenLive && tm.hand && handOver) handOver(tm)
       return
     }
     if (left <= 0) {
@@ -196,6 +205,10 @@ const runRest = (set, get) => {
       cancelPushRestTimer()
       stopRestTicking()
       set({ timer: { ...tm, left: 0, ready: true } })
+      // After Ready is set, so a hold the hand-over starts replaces it (startWork stops the rest).
+      // It gets the rest as it is now, not as it was when it started: an exercise added, removed
+      // or moved above it re-pointed forIdx along the way.
+      if (seenLive && tm.hand && handOver) handOver(tm)
       return
     }
     if (left <= 3) beep(snd, 660, 0.1)
@@ -218,6 +231,8 @@ export const useUI = create((set, get) => ({
                        //   setting asks for one per kind
                        // phase: 'warmup' when the set a rest leads into is a warm-up (ramp) set, else
                        //   'work', on an exercise that has warm-up rows (supersetFlow.restSetPhase)
+                       // hand: what the rest hands over to when it is over (see handOver above) —
+                       //   { chain: { id, i, n } }: the hold of row i of entry id, if it still has n rows
                        // forIdx: index of the active entry whose set started the rest (undefined when unknown)
                        // forSet: index of that set in the entry's rows, so removing the set stops its rest
                        // paused: held at `left`; `endsAt` means nothing until resumeRest sets it again
@@ -269,10 +284,12 @@ export const useUI = create((set, get) => ({
     if (get().toastMsg) runToast(set)
   },
 
-  startRest(sec, forIdx, { kind, forSet, phase } = {}) {
+  startRest(sec, forIdx, { kind, forSet, phase, hand } = {}) {
     get().stopRest()
     // Rest timer set to Off. Stopping and returning rather than starting a zero-length timer
     // keeps every caller honest: the four places that start a rest do not each need to know.
+    // Off also drops the hand-over: it rides on the rest, so with no rest the next hold waits for
+    // a tap like any other.
     if (!(sec > 0)) return
     // And the hold, the other way round from startWork: the two must never run together (see the
     // work timer below). A set ticked by hand while its hold ran used to leave both going — the
@@ -289,7 +306,7 @@ export const useUI = create((set, get) => ({
     // with no beep, no vibration and no flash. Each timer starts from where the page is now.
     pageHiddenAt = document.hidden ? Date.now() : null
     const endsAt = Date.now() + sec * 1000
-    set({ timer: { left: sec, total: sec, endsAt, forIdx, ...(forSet != null ? { forSet } : {}), ...(kind ? { kind } : {}), ...(phase ? { phase } : {}) } })
+    set({ timer: { left: sec, total: sec, endsAt, forIdx, ...(forSet != null ? { forSet } : {}), ...(kind ? { kind } : {}), ...(phase ? { phase } : {}), ...(hand ? { hand } : {}) } })
     bookRestEnd(endsAt, sec, kind)
     runRest(set, get)
   },
@@ -324,14 +341,14 @@ export const useUI = create((set, get) => ({
   addRest(sec) {
     const tm = get().timer
     if (!tm) return
-    if (tm.ready) { if (sec > 0) get().startRest(Math.min(sec, REST_MAX), tm.forIdx, { forSet: tm.forSet, kind: tm.kind, phase: tm.phase }); else get().stopRest(); return }
+    if (tm.ready) { if (sec > 0) get().startRest(Math.min(sec, REST_MAX), tm.forIdx, { forSet: tm.forSet, kind: tm.kind, phase: tm.phase, hand: tm.hand }); else get().stopRest(); return }
     // +15 s stops where the wheel does (15:00), so the two never disagree about a rest's length.
     if (sec > 0) sec = Math.min(sec, Math.max(0, REST_MAX - tm.left))
     if (!sec) return
     const left = tm.left + sec
     // taking off more than is left means "I'm ready now" — same as skipping, and it keeps a
     // negative duration out of both the progress bar and the server-side push schedule
-    if (left <= 0) { get().stopRest(); return }
+    if (left <= 0) { get().skipRest(); return }
     // Paused, there is no end to move and nothing booked on the server: the time is simply held,
     // and the notification holds the new figure.
     if (tm.paused) { set({ timer: { ...tm, left, total: tm.total + sec } }); holdRestAlert(left, tm.total + sec); return }
@@ -353,7 +370,7 @@ export const useUI = create((set, get) => ({
   followNativeRest({ endsAt, left, total, paused }) {
     const tm = get().timer
     const forIdx = tm?.forIdx
-    const kind = { ...(tm?.kind ? { kind: tm.kind } : {}), ...(tm?.phase ? { phase: tm.phase } : {}), ...(tm?.forSet != null ? { forSet: tm.forSet } : {}) }
+    const kind = { ...(tm?.kind ? { kind: tm.kind } : {}), ...(tm?.phase ? { phase: tm.phase } : {}), ...(tm?.hand ? { hand: tm.hand } : {}), ...(tm?.forSet != null ? { forSet: tm.forSet } : {}) }
     if (paused) {
       stopRestTicking()
       set({ timer: { left, total, endsAt, forIdx, ...kind, paused: true } })
@@ -366,6 +383,17 @@ export const useUI = create((set, get) => ({
     pageHiddenAt = document.hidden ? Date.now() : null
     runRest(set, get)
   },
+  // "I'm ready now": the rest is over early, and whatever it was going to hand over to happens
+  // now. The Skip button, −15 s past zero and the wheel at 0:00 come here; everything else that
+  // ends a rest (a new rest, a hold starting, an exercise removed, the workout discarded) uses
+  // stopRest. Dismiss on Ready comes here too, with nothing left to hand over: the end already did.
+  skipRest() {
+    const tm = get().timer
+    get().stopRest()
+    if (tm && !tm.ready && tm.hand && handOver) handOver(tm)
+  },
+  // The workout screen's handler for a rest's hand-over (see handOver above).
+  bindRest(fn) { handOver = typeof fn === 'function' ? fn : null },
   stopRest() {
     stopRestTicking()
     // Skip, Dismiss, a rest replacing this one and "rest off" all take the native alarm and
@@ -459,7 +487,7 @@ const saveRest = tm => {
   if (!ss) return
   try {
     if (!tm || tm.ready) ss.removeItem(REST_KEY)
-    else ss.setItem(REST_KEY, JSON.stringify({ endsAt: tm.endsAt, total: tm.total, forIdx: tm.forIdx ?? null, forSet: tm.forSet ?? null, kind: tm.kind || null, phase: tm.phase || null, paused: !!tm.paused, left: tm.left }))
+    else ss.setItem(REST_KEY, JSON.stringify({ endsAt: tm.endsAt, total: tm.total, forIdx: tm.forIdx ?? null, forSet: tm.forSet ?? null, kind: tm.kind || null, phase: tm.phase || null, hand: tm.hand || null, paused: !!tm.paused, left: tm.left }))
   } catch { /* the rest just does not outlive a reload */ }
 }
 export function restoreRest(now = Date.now()) {
@@ -470,7 +498,7 @@ export function restoreRest(now = Date.now()) {
   const total = Math.round(Number(saved.total))
   const ok = useStore.getState().S?.active && total > 0 && (saved.paused ? saved.left > 0 : saved.endsAt > now)
   if (!ok) { try { ss.removeItem(REST_KEY) } catch { /* nothing to drop */ } return false }
-  const base = { total, forIdx: saved.forIdx ?? undefined, ...(saved.forSet != null ? { forSet: saved.forSet } : {}), ...(saved.kind ? { kind: saved.kind } : {}), ...(saved.phase ? { phase: saved.phase } : {}) }
+  const base = { total, forIdx: saved.forIdx ?? undefined, ...(saved.forSet != null ? { forSet: saved.forSet } : {}), ...(saved.kind ? { kind: saved.kind } : {}), ...(saved.phase ? { phase: saved.phase } : {}), ...(saved.hand ? { hand: saved.hand } : {}) }
   if (saved.paused) {
     useUI.setState({ timer: { ...base, left: Math.round(saved.left), endsAt: saved.endsAt, paused: true } })
     if (MOBILE) holdRestAlert(Math.round(saved.left), total)
