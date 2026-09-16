@@ -232,7 +232,9 @@ export const useUI = create((set, get) => ({
                        // phase: 'warmup' when the set a rest leads into is a warm-up (ramp) set, else
                        //   'work', on an exercise that has warm-up rows (supersetFlow.restSetPhase)
                        // hand: what the rest hands over to when it is over (see handOver above) —
-                       //   { chain: { id, i, n } }: the hold of row i of entry id, if it still has n rows
+                       //   { from?, chain? }: `from` the marker when the rest started, so the screen
+                       //   can move on (Workout.jsx restHandOver); `chain` { id, i, n } the hold of
+                       //   row i of entry id, if it still has n rows
                        // forIdx: index of the active entry whose set started the rest (undefined when unknown)
                        // forSet: index of that set in the entry's rows, so removing the set stops its rest
                        // paused: held at `left`; `endsAt` means nothing until resumeRest sets it again

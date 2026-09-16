@@ -854,10 +854,29 @@ const chainHold = (chain, forIdx) => {
   if (unitOf(supersetUnits(S2.active.entries), forIdx).length !== 1) return
   latest.startTimed?.(forIdx, chain.i)
 }
+// A rest that runs out hands the screen over to what it has been pointing at all along
+// (supersetFlow.restFocusIdx — the exercise the bar's "Set / Round / Exercise" means and the List
+// layout scrolls to). Without this the bar said "Exercise", the countdown ended, and you were left
+// looking at the exercise you had just finished, with no way forward but Next.
+//
+// Judged when it fires, like the hold chain: a rest outlives the render that armed it. `from`
+// (timer.hand.from) is where the marker stood when the rest began — if it has moved since, you
+// navigated during the break, and a countdown does not overrule that.
+//
 // What a rest hands over to once it is over (useUI.bindRest). Bound once, here, rather than by a
 // mounted screen: the workout view unmounts on every tab switch, and a rest restored at boot
 // (gym_rest) has to find it whichever screen the app opens on.
-export function restHandOver(tm) { chainHold(tm.hand?.chain, tm.forIdx) }
+export function restHandOver(tm) {
+  const hand = tm.hand || {}
+  const active = useStore.getState().S.active
+  if ('from' in hand && active && tm.forIdx != null && active.cur === hand.from) {
+    const to = restFocusIdx(active.entries, supersetUnits(active.entries), tm.forIdx, tm.kind)
+    if (to != null && to !== hand.from && active.entries[to]) {
+      useStore.getState().update(s => { if (s.active && s.active.cur === hand.from) s.active.cur = to })
+    }
+  }
+  chainHold(hand.chain, tm.forIdx)
+}
 useUI.getState().bindRest?.(restHandOver)
 
 export function removeActiveExercise(idx) {
@@ -1674,7 +1693,19 @@ function ActiveWorkout() {
       const alone = !freshUnit || freshUnit.length <= 1
       const rows = fresh.entries[idx].sets
       const chainTo = at => (fromHold && alone && at >= 0 ? { chain: { id: fresh.entries[idx].id, i: at, n: rows.length } } : undefined)
-      const rest = () => startRest(restAfter, idx, { kind, phase, forSet: i, hand: chainTo(freshUnitDone ? -1 : nextUndoneAfter(rows, i)) })
+      // Every rest a completed set starts hands the screen over when it is over (restHandOver):
+      // `from` is where the marker stands as the rest starts — read from the store, since a
+      // round's rest starts after the marker has moved on to the round's next member (below).
+      const rest = () => startRest(restAfter, idx, { kind, phase, forSet: i, hand: { from: useStore.getState().S.active?.cur, ...chainTo(freshUnitDone ? -1 : nextUndoneAfter(rows, i)) } })
+      // Finishing an exercise owes you the next one. Normally the rest carries you there when
+      // it ends; when nothing is going to time that gap — the rest timer is Off, the next
+      // exercise has warm-up sets of its own to ramp through first, or this is a backfilled
+      // session that has no rest at all — the move happens now instead of not at all.
+      const gapIsTimed = !!restAfter && !A.backfill && !restBeforeWarmup
+      const moveOn = () => {
+        if (!freshUnitDone || !nextUnit?.length || gapIsTimed) return
+        update(s => { if (s.active && s.active.entries[nextUnit[0]]) s.active.cur = nextUnit[0] })
+      }
 
       // A re-check of finished work must not navigate or reopen a sheet, but it may still owe
       // you a rest — see restOnRecheck, and the other half of issue #3. A rest that already ran
@@ -1704,16 +1735,18 @@ function ActiveWorkout() {
       if (freshUnitDone) stopRest()
       if (alone) {
         if (!restBeforeWarmup && restAfterSet({ unitDone: freshUnitDone, lastUnit: freshWorkoutDone })) rest()
+        moveOn()
         return
       }
 
       const step = supersetFlowStep(fresh.entries, freshUnit, idx)
       if (!step) return
       if (step.unitDone) {
-        if (nextUnit?.length && !restBeforeWarmup) startRest(restAfter, idx, { kind, phase, forSet: i })
+        if (nextUnit?.length && !restBeforeWarmup) rest()
+        moveOn()
       } else {
         if (step.nextIdx != null) update(s => { if (s.active) s.active.cur = step.nextIdx })
-        if (step.roundDone) startRest(restAfter, idx, { kind, phase, forSet: i })
+        if (step.roundDone) rest()
       }
     }
   }
