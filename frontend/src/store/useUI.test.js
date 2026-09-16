@@ -351,10 +351,11 @@ describe('rest-over sound per kind of rest', () => {
   })
 })
 
-// A rest can hand over to something (a timed exercise's next hold): when it runs out on screen
-// or is skipped — never when it ran out while the app was hidden, never on a plain stop. What it
-// hands over to travels on the rest as data (timer.hand); the workout screen binds the function
-// that acts on it (bindRest).
+// A rest hands over when it runs out or is skipped, never on a plain stop. It also says whether
+// the countdown actually ran out on screen: one that expired while the app was hidden still fires
+// (the screen can move on to the next exercise) but must not start a hold nobody watched — that
+// half is the caller's to gate, and Workout.jsx does. What it hands over to travels on the rest as
+// data (timer.hand); the workout screen binds the function that acts on it (bindRest).
 describe('what a rest hands over to', () => {
   let originalSettings, done
   const hand = { chain: { id: 'plank', i: 1, n: 3 } }
@@ -376,6 +377,7 @@ describe('what a rest hands over to', () => {
     vi.advanceTimersByTime(1000)
     expect(done).toHaveBeenCalledTimes(1)
     expect(done.mock.calls[0][0]).toMatchObject({ forIdx: 0, kind: 'set', hand })
+    expect(done.mock.calls[0][1]).toBe(true)          // seen live
     vi.advanceTimersByTime(3000)
     expect(done).toHaveBeenCalledTimes(1)
   })
@@ -418,6 +420,7 @@ describe('what a rest hands over to', () => {
     useUI.getState().skipRest()
     expect(done).toHaveBeenCalledTimes(1)
     expect(done.mock.calls[0][0]).toMatchObject({ forIdx: 0, hand })
+    expect(done.mock.calls[0][1]).toBe(true)          // you are looking at it
     expect(useUI.getState().timer).toBe(null)
   })
 
@@ -434,15 +437,17 @@ describe('what a rest hands over to', () => {
     expect(done).not.toHaveBeenCalled()
   })
 
-  it('does not fire when the rest ran out while the app was hidden, then or on Dismiss', () => {
+  it('fires, but says it was not seen live, when the rest ran out while the app was hidden', () => {
     useUI.getState().startRest(90, 0, { kind: 'set', hand })
     goHidden()
     vi.setSystemTime(Date.now() + 91_000)
     goVisible()
     expect(useUI.getState().timer).toMatchObject({ left: 0, ready: true })
-    useUI.getState().skipRest()                      // Dismiss
+    expect(done).toHaveBeenCalledTimes(1)
+    expect(done.mock.calls[0][1]).toBe(false)
+    useUI.getState().skipRest()                      // Dismiss: nothing more to hand over
     expect(useUI.getState().timer).toBe(null)
-    expect(done).not.toHaveBeenCalled()
+    expect(done).toHaveBeenCalledTimes(1)
   })
 
   it('a rest without one hands over nothing', () => {
@@ -464,12 +469,13 @@ describe('what a rest hands over to', () => {
     useUI.getState().startRest(90, 0, { kind: 'set', hand })
     goHidden()
     vi.setSystemTime(Date.now() + 91_000)
-    goVisible()                                       // ran out in a pocket: nothing handed over
+    goVisible()                                       // ran out in a pocket: handed over, unseen
     expect(useUI.getState().timer).toMatchObject({ ready: true, hand })
+    expect(done.mock.calls.map(c => c[1])).toEqual([false])
     useUI.getState().addRest(15)
     expect(useUI.getState().timer).toMatchObject({ left: 15, hand })
     vi.advanceTimersByTime(15_000)
-    expect(done).toHaveBeenCalledTimes(1)
+    expect(done.mock.calls.map(c => c[1])).toEqual([false, true])
   })
 
   it('the switch-sides pause hands over too, when it runs out on screen or is skipped', () => {

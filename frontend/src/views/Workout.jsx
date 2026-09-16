@@ -866,7 +866,7 @@ const chainHold = (chain, forIdx) => {
 // What a rest hands over to once it is over (useUI.bindRest). Bound once, here, rather than by a
 // mounted screen: the workout view unmounts on every tab switch, and a rest restored at boot
 // (gym_rest) has to find it whichever screen the app opens on.
-export function restHandOver(tm) {
+export function restHandOver(tm, seenLive) {
   const hand = tm.hand || {}
   const active = useStore.getState().S.active
   if ('from' in hand && active && tm.forIdx != null && active.cur === hand.from) {
@@ -875,7 +875,9 @@ export function restHandOver(tm) {
       useStore.getState().update(s => { if (s.active && s.active.cur === hand.from) s.active.cur = to })
     }
   }
-  chainHold(hand.chain, tm.forIdx)
+  // The next hold is the half that must not run unwatched: a rest that expired in your pocket
+  // would otherwise log a hold you never did. The move above is safe either way.
+  if (seenLive) chainHold(hand.chain, tm.forIdx)
 }
 useUI.getState().bindRest?.(restHandOver)
 

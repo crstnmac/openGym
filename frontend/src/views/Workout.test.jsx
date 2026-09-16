@@ -446,7 +446,7 @@ describe('Workout set completion flow', () => {
   // The rest started by startRest call `call`, over now; `forIdx` is its owner as useUI has it then.
   const restRunsOut = async (call = 0, forIdx) => {
     const [, at, opts] = mocks.startRest.mock.calls[call]
-    await act(async () => { mocks.restHandOver({ forIdx: forIdx ?? at, ...opts }) })
+    await act(async () => { mocks.restHandOver({ forIdx: forIdx ?? at, ...opts }, true) })
   }
   const handOf = (call = 0) => mocks.startRest.mock.calls[call][2].hand
 
@@ -474,6 +474,15 @@ describe('Workout set completion flow', () => {
   // Every rest carries a hand-over — the one that moves the screen to the exercise the rest
   // points at when the countdown ends. What these cases are about is the other half of it: no
   // NEXT HOLD is chained, so nothing starts counting down on its own.
+  it('a rest that ran out in your pocket starts no hold nobody watched', async () => {
+    await mount([hold('plank', [false, false, false])])
+    await pressStart(0)
+    await act(async () => { mocks.startWork.mock.calls[0][2](30) })
+    const [, at, opts] = mocks.startRest.mock.calls[0]
+    await act(async () => { mocks.restHandOver({ forIdx: at, ...opts }, false) })
+    expect(mocks.startWork).toHaveBeenCalledTimes(1)
+  })
+
   it('the last hold of the exercise hands over no further hold, and neither does a set ticked by hand', async () => {
     await mount([hold('plank', [true, true, false]), exercise('next', [false])])
     await pressStart(2)
@@ -1523,7 +1532,7 @@ describe('superset flow survives an exercise being removed mid-session', () => {
 // current one. Before this the countdown ended, the toast said "next set!", and you were left
 // looking at the exercise you had just finished.
 describe('a finished rest moves the screen on', () => {
-  const restOver = (call, forIdx) => act(async () => { mocks.restHandOver({ forIdx, ...call[2] }) })
+  const restOver = (call, forIdx, seenLive = true) => act(async () => { mocks.restHandOver({ forIdx, ...call[2] }, seenLive) })
 
   it('takes you to the next exercise when a block rest ends', async () => {
     await mount([exercise('bench', [true, false]), exercise('row', [false, false])], 0)
@@ -1575,6 +1584,15 @@ describe('a finished rest moves the screen on', () => {
     mocks.S.active = null                                        // finished or discarded during the rest
     await restOver(call, 0)
     expect(mocks.S.active).toBeNull()
+  })
+
+  it('still moves on when the rest ran out while the phone was in your pocket', async () => {
+    // The next hold is the half that must not run unwatched; the move is safe either way, and
+    // is what you want waiting for you when you unlock the phone.
+    await mount([exercise('bench', [true, false]), exercise('row', [false, false])], 0)
+    await toggleSet(1)
+    await restOver(mocks.startRest.mock.calls.at(-1), 0, false)
+    expect(mocks.S.active.cur).toBe(1)
   })
 
   it('moves on straight away when the rest timer is off and nothing will time the gap', async () => {

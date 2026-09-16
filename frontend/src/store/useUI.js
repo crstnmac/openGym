@@ -93,9 +93,11 @@ let timerTick = null
 // What a rest hands over to when it is over (Workout.jsx restHandOver: a timed exercise's next
 // hold). The rest carries it as data (timer.hand), so it outlives the render that started the
 // rest and is kept with the rest across a reload (gym_rest); the workout screen binds the one
-// function that acts on it (bindRest). Fires when the rest runs out on screen or is skipped —
-// never when it ran out while the app was hidden (a hold nobody watched start would still be
-// logged), never on a plain stopRest(), never twice: a rest on Ready has had its turn.
+// function that acts on it (bindRest). Fires when the rest runs out or is skipped — never on a
+// plain stopRest(), never twice: a rest on Ready has had its turn. It is told whether the
+// countdown actually ran out on screen (seenLive): a rest that expired in your pocket must not
+// start a hold nobody watched, but moving the screen on to the next exercise is exactly what you
+// want waiting for you when you unlock the phone.
 let handOver = null
 let workInt = null
 let workTick = null
@@ -182,7 +184,7 @@ const runRest = (set, get) => {
       stopRestTicking()
       set({ timer: null })
       // A timed exercise that runs itself: the other side's hold (Workout.jsx toggle).
-      if (seenLive && tm.hand && handOver) handOver(tm)
+      if (tm.hand && handOver) handOver(tm, seenLive)
       return
     }
     if (left <= 0) {
@@ -208,7 +210,7 @@ const runRest = (set, get) => {
       // After Ready is set, so a hold the hand-over starts replaces it (startWork stops the rest).
       // It gets the rest as it is now, not as it was when it started: an exercise added, removed
       // or moved above it re-pointed forIdx along the way.
-      if (seenLive && tm.hand && handOver) handOver(tm)
+      if (tm.hand && handOver) handOver(tm, seenLive)
       return
     }
     if (left <= 3) beep(snd, 660, 0.1)
@@ -397,7 +399,7 @@ export const useUI = create((set, get) => ({
   skipRest() {
     const tm = get().timer
     get().stopRest()
-    if (tm && !tm.ready && tm.hand && handOver) handOver(tm)
+    if (tm && !tm.ready && tm.hand && handOver) handOver(tm, true)   // you are looking at it — you tapped Skip
   },
   // The workout screen's handler for a rest's hand-over (see handOver above).
   bindRest(fn) { handOver = typeof fn === 'function' ? fn : null },
