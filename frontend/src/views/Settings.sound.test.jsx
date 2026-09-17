@@ -8,6 +8,8 @@ import { bindUI } from '../components/ui.jsx'
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
+// A timer already counting picks up a Sounds change straight away (store/useUI.js).
+const ui = vi.hoisted(() => ({ restartCountdown: vi.fn() }))
 const mocks = vi.hoisted(() => {
   const state = { S: null }
   state.snapshot = () => ({
@@ -29,7 +31,7 @@ vi.mock('../store/useStore.js', () => {
   return { useStore, DEF: { reminder: { time: '17:30' } }, hasData: () => false }
 })
 vi.mock('../store/useUI.js', () => {
-  const snap = () => ({ toast: vi.fn(), openSheet: vi.fn() })
+  const snap = () => ({ toast: vi.fn(), openSheet: vi.fn(), restartCountdown: ui.restartCountdown })
   const useUI = selector => selector ? selector(snap()) : snap()
   useUI.getState = snap
   return { useUI }
@@ -129,6 +131,13 @@ describe('Settings — Play a sound unlocks audio from the tap', () => {
     act(() => { switchIn(rowTitled('Play a sound')).click() })
     expect(mocks.S.sound).toBe(false)
     expect(unlock).not.toHaveBeenCalled()
+  })
+
+  it('a timer already counting has its count-in queued again, or called off', () => {
+    ui.restartCountdown.mockClear()
+    mount()
+    act(() => { switchIn(rowTitled('Play a sound')).click() })
+    expect(ui.restartCountdown).toHaveBeenCalledTimes(1)
   })
 })
 

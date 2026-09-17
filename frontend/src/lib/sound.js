@@ -34,6 +34,21 @@ const wake = () => {
   return ctx
 }
 
+// While a timer is running the context is held open (holdSession). Two reasons, and the second
+// is the one that matters in a gym: a suspended context is not "playing media", so iOS points the
+// hardware volume buttons at the RINGER instead of the media channel the timer actually uses
+// (audioSession 'playback'). Pressing volume-up between two beeps therefore turned up the wrong
+// thing, and a phone whose media volume is low had no reachable way to fix it — which is what a
+// timer that stays quiet however loud it plays looks like. Held, the buttons do what you expect
+// for as long as the rest lasts. (The first reason is smaller: a tone never has to start from
+// suspended.) The trade-off is the one the Settings switch already names — under 'playback' the
+// phone's own music stays paused for the whole rest, not just across each beep.
+let held = false
+export function holdSession(on) {
+  held = !!on
+  if (held) { try { wake() } catch (e) { /* */ } } else sleepAfter(0)
+}
+
 // Suspend once every scheduled tone is over. A burst schedules several tones in one go; the
 // latest end wins, and a tone scheduled while the timer is pending pushes it out.
 const sleepAfter = endSec => {
@@ -43,6 +58,7 @@ const sleepAfter = endSec => {
   clearTimeout(idleTm)
   idleTm = setTimeout(() => {
     idleTm = null
+    if (held) return          // a timer is running; holdSession(false) schedules the sleep instead
     try { if (audioCtx && audioCtx.state === 'running') { const p = audioCtx.suspend(); if (p && p.catch) p.catch(() => {}) } } catch (e) { /* */ }
   }, at - Date.now())
 }
@@ -64,7 +80,8 @@ const setBright = (ctx, o) => {
 
 // One tone. The defaults are every beep the app has always made: a sine that reaches 0.35 and
 // fades from there at once. `peak`, `hold` (the share of the tone kept at its peak before the
-// fade) and `bright` exist for the timer chime below.
+// fade) and `bright` exist for the timer chime below. Returns the oscillator so a scheduled burst
+// can still be called off (see hush).
 const tone = (freq, dur, when, { peak = 0.35, hold = 0, bright = false } = {}) => {
   const ctx = wake()
   const o = ctx.createOscillator(), g = ctx.createGain()
@@ -78,6 +95,7 @@ const tone = (freq, dur, when, { peak = 0.35, hold = 0, bright = false } = {}) =
   g.gain.exponentialRampToValueAtTime(0.001, t0 + dur)
   o.start(t0); o.stop(t0 + dur + 0.05)
   sleepAfter(when + dur + 0.05)
+  return o
 }
 
 export function beep(enabled, freq, dur, when) {
@@ -115,6 +133,32 @@ export function chime(enabled, classic) {
     if (classic === true) CLASSIC.forEach(([freq, dur, when]) => tone(freq, dur, when))
     else CHIME.forEach(([freq, dur, when]) => tone(freq, dur, when, { peak: CHIME_PEAK, hold: 0.6, bright: true }))
   } catch (e) { /* */ }
+}
+
+// The last seconds of a timer, ticked out loud so you can put the phone down and still be
+// ready. Scheduled as one burst the moment the timer starts, not beeped a tick at a time:
+// setInterval is throttled to a crawl (often to once a minute) in a backgrounded tab or behind
+// a locked screen, which is exactly where a phone spends a rest — so the tick-by-tick version
+// counted you in only when you were already watching the screen. Audio that is queued inside
+// the tap that started the timer keeps its own clock and plays regardless. The ticks are the
+// ones the tick-by-tick version beeped: 660 Hz, 0.1 s.
+//
+// A timer shorter than COUNTDOWN_SEC counts down from what it has. hush() is what makes the
+// burst safe: every way a timer ends early (Skip, Done, Cancel, a new timer, the workout
+// discarded) goes through it, so ticks for a rest that is already over never arrive late.
+export const COUNTDOWN_SEC = 5
+let ticks = []
+export function countdown(enabled, secLeft) {
+  hush()
+  if (!enabled) return
+  const left = Math.floor(Number(secLeft) || 0)
+  try {
+    for (let n = Math.min(COUNTDOWN_SEC, left); n >= 1; n--) ticks.push(tone(660, 0.1, left - n))
+  } catch (e) { /* */ }
+}
+export function hush() {
+  for (const o of ticks) { try { o.stop(0) } catch (e) { /* */ } }
+  ticks = []
 }
 
 // Call from inside a tap. Gets the context created and running while the browser still counts
