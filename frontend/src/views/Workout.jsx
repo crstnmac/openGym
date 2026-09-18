@@ -16,7 +16,7 @@ import { pinState } from '../lib/queue.js'
 import { t, tn, exerciseNameFor, exerciseNameClass } from '../lib/i18n.js'
 import { api, beacon } from '../lib/api.js'
 import { pyramidRestFor, maxRecordAt, isPyramid, pyramidLabel } from '../lib/pyramid.js'
-import { insertionIndexAfterCurrentUnit, nextUnfinishedUnit, setProgressHighWater, supersetFlowStep, restAfterSet, restOnRecheck, restSecFor, warmupRestSecFor, restKind, restFocusIdx, restSetPhase } from '../lib/supersetFlow.js'
+import { insertionIndexAfterCurrentUnit, nextUnfinishedUnit, nextUnitAhead, setProgressHighWater, supersetFlowStep, restAfterSet, restOnRecheck, restSecFor, warmupRestSecFor, restKind, restFocusIdx, restSetPhase } from '../lib/supersetFlow.js'
 import Media from '../components/Media.jsx'
 import WorkoutThumb, { hasWorkoutMedia } from '../components/WorkoutThumb.jsx'
 import { workoutSettingsSheet } from '../components/WorkoutSettingsSheet.jsx'
@@ -859,9 +859,18 @@ const chainHold = (chain, forIdx) => {
 // layout scrolls to). Without this the bar said "Exercise", the countdown ended, and you were left
 // looking at the exercise you had just finished, with no way forward but Next.
 //
+// With one exception: forward only. After the closing set of an exercise the rest points at the
+// next unit with work, WRAPPING — a warm-up skipped at the top of the session is still work, and
+// that is the honest thing to call the rest. But a rest that ends by yanking the screen back to
+// the first exercise is worse than one that leaves you where you are (2026-09-18, a coach session
+// with the warm-up block skipped: every later exercise "jumped, but not to the next exercise").
+// So the screen takes the next unit AHEAD with work (nextUnitAhead) and otherwise stays.
+//
 // Judged when it fires, like the hold chain: a rest outlives the render that armed it. `from`
 // (timer.hand.from) is where the marker stood when the rest began — if it has moved since, you
-// navigated during the break, and a countdown does not overrule that.
+// navigated during the break, and a countdown does not overrule that. A rest with no `from` moves
+// nothing: the one a re-check owes (toggle) — finished work you unticked and ticked again must not
+// navigate (the promise above restOnRecheck), while a redone hold still chains its next one.
 //
 // What a rest hands over to once it is over (useUI.bindRest). Bound once, here, rather than by a
 // mounted screen: the workout view unmounts on every tab switch, and a rest restored at boot
@@ -870,7 +879,10 @@ export function restHandOver(tm, seenLive) {
   const hand = tm.hand || {}
   const active = useStore.getState().S.active
   if ('from' in hand && active && tm.forIdx != null && active.cur === hand.from) {
-    const to = restFocusIdx(active.entries, supersetUnits(active.entries), tm.forIdx, tm.kind)
+    const units = supersetUnits(active.entries)
+    const to = tm.kind === 'block'
+      ? nextUnitAhead(active.entries, units, tm.forIdx)?.[0]
+      : restFocusIdx(active.entries, units, tm.forIdx, tm.kind)
     if (to != null && to !== hand.from && active.entries[to]) {
       useStore.getState().update(s => { if (s.active && s.active.cur === hand.from) s.active.cur = to })
     }
@@ -1698,24 +1710,32 @@ function ActiveWorkout() {
       // Every rest a completed set starts hands the screen over when it is over (restHandOver):
       // `from` is where the marker stands as the rest starts — read from the store, since a
       // round's rest starts after the marker has moved on to the round's next member (below).
-      const rest = () => startRest(restAfter, idx, { kind, phase, forSet: i, hand: { from: useStore.getState().S.active?.cur, ...chainTo(freshUnitDone ? -1 : nextUndoneAfter(rows, i)) } })
+      // `move` false leaves it out (a re-check, below).
+      const rest = (move = true) => {
+        const hand = { ...(move ? { from: useStore.getState().S.active?.cur } : {}), ...chainTo(freshUnitDone ? -1 : nextUndoneAfter(rows, i)) }
+        startRest(restAfter, idx, { kind, phase, forSet: i, hand: Object.keys(hand).length ? hand : undefined })
+      }
       // Finishing an exercise owes you the next one. Normally the rest carries you there when
       // it ends; when nothing is going to time that gap — the rest timer is Off, the next
       // exercise has warm-up sets of its own to ramp through first, or this is a backfilled
-      // session that has no rest at all — the move happens now instead of not at all.
+      // session that has no rest at all — the move happens now instead of not at all. Forward
+      // only, like the hand-over: `nextUnit` wraps to work left behind, and that is where the
+      // rest is owed, not where the screen goes.
       const gapIsTimed = !!restAfter && !A.backfill && !restBeforeWarmup
+      const ahead = freshUnitDone ? nextUnitAhead(fresh.entries, freshUnits, idx) : null
       const moveOn = () => {
-        if (!freshUnitDone || !nextUnit?.length || gapIsTimed) return
-        update(s => { if (s.active && s.active.entries[nextUnit[0]]) s.active.cur = nextUnit[0] })
+        if (!freshUnitDone || !ahead || gapIsTimed) return
+        update(s => { if (s.active && s.active.entries[ahead[0]]) s.active.cur = ahead[0] })
       }
 
       // A re-check of finished work must not navigate or reopen a sheet, but it may still owe
       // you a rest — see restOnRecheck, and the other half of issue #3. A rest that already ran
       // out and only shows Ready is not running: it has nothing left to time. A paused one is
       // still the rest you are in, held on purpose, and a re-check leaves it as it is.
+      // So the rest it starts carries no move (a redone hold still chains its next one).
       if (!progress.isNew) {
         const tm = useUI.getState().timer
-        if (!restBeforeWarmup && restOnRecheck({ timerRunning: !!(tm && !tm.ready), unitDone: freshUnitDone, lastUnit: freshWorkoutDone })) rest()
+        if (!restBeforeWarmup && restOnRecheck({ timerRunning: !!(tm && !tm.ready), unitDone: freshUnitDone, lastUnit: freshWorkoutDone })) rest(false)
         return
       }
 
