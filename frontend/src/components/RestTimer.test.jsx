@@ -115,6 +115,8 @@ describe('rest timer bar: what it is timing', () => {
     act(() => { host.querySelector('#timer .acts .skip').click() })
     expect(useUI.getState().timer).toBe(null)
     expect(done).toHaveBeenCalledTimes(1)
+    // Tapped on screen, so seen: true itself, not the click event standing in for it.
+    expect(done.mock.calls[0][1]).toBe(true)
     useUI.getState().bindRest(null)
   })
 
