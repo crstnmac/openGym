@@ -457,10 +457,12 @@ export const useUI = create((set, get) => ({
   // now. The Skip button, −15 s past zero and the wheel at 0:00 come here; everything else that
   // ends a rest (a new rest, a hold starting, an exercise removed, the workout discarded) uses
   // stopRest. Dismiss on Ready comes here too, with nothing left to hand over: the end already did.
-  skipRest() {
+  // `seen` is false for the Android notification's own Skip: the screen moves on for when the
+  // app is opened, like a rest that ran out in a pocket, but no hold starts that nobody watched.
+  skipRest(seen = true) {
     const tm = get().timer
     get().stopRest()
-    if (tm && !tm.ready && tm.hand && handOver) handOver(tm, true)   // you are looking at it — you tapped Skip
+    if (tm && !tm.ready && tm.hand && handOver) handOver(tm, seen)
   },
   // The workout screen's handler for a rest's hand-over (see handOver above).
   bindRest(fn) { handOver = typeof fn === 'function' ? fn : null },
@@ -646,11 +648,12 @@ useUI.subscribe((s, prev) => { if (s.work !== prev.work && (!s.work || !prev.wor
 restoreWork()
 
 // Buttons on the rest notification (pause, ±15s, skip) change the countdown in the
-// service first, then mirror that into the in-app timer. skip ends it. Seconds round up, as the
-// notification's clock does, so a pause in the last half second still holds a second here.
+// service first, then mirror that into the in-app timer. skip ends it and hands over, unseen (see
+// skipRest). Seconds round up, as the notification's clock does, so a pause in the last half
+// second still holds a second here.
 bindNativeRest(ev => {
   if (!ev) return
-  if (ev.type === 'skip') { useUI.getState().stopRest(); return }
+  if (ev.type === 'skip') { useUI.getState().skipRest(false); return }
   const left = Math.ceil((ev.leftMs || 0) / 1000)
   if (!(left > 0)) return
   const total = Math.max(left, Math.round((ev.totalMs || 0) / 1000))
