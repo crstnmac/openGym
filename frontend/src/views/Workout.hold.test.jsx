@@ -189,6 +189,20 @@ describe('a timed exercise that runs itself, and a move during its rest', () => 
     expect(doneOf()).toEqual([true, false])
   })
 
+  it('going to another exercise during the hold itself stops it too: its rest hands over nothing', () => {
+    const bench = { id: '0025', target: { mode: 'reps', sets: 1, reps: 5, weight: 60 }, sets: [{ w: 60, r: 5, done: false }] }
+    renderWorkout([plank(), bench])
+    startHold()
+    act(() => { vi.advanceTimersByTime(4_000) })
+    act(() => useStore.getState().update(s => { s.active.cur = 1 }))
+    act(() => { vi.advanceTimersByTime(7_000) })                // held to the end: its rest starts
+    expect(doneOf()).toEqual([true, false])
+    expect(useUI.getState().timer).toMatchObject({ kind: 'set', hand: { stay: true } })
+    act(() => { vi.advanceTimersByTime(useUI.getState().timer.total * 1000) })
+    expect(useUI.getState().work).toBeNull()
+    expect(useStore.getState().S.active.cur).toBe(1)
+  })
+
   // Moving or removing exercises shifts the indexes under the marker without anyone going
   // anywhere: the chain carries on.
   const bench = () => ({ id: '0025', target: { mode: 'reps', sets: 1, reps: 5, weight: 60 }, sets: [{ w: 60, r: 5, done: false }] })
@@ -297,6 +311,19 @@ describe('a timed exercise that runs itself, across a reload', () => {
     act(() => { vi.advanceTimersByTime(6_000) })
     expect(doneOf()).toEqual([true, false])
     expect(useUI.getState().timer).toMatchObject({ kind: 'set', hand: { chain: { id: '1001', i: 1, n: 2 } } })
+  })
+
+  it('in the List layout, a restored hold away from the marker still hands its rest the next hold', () => {
+    const bench = { id: '0025', target: { mode: 'reps', sets: 1, reps: 5, weight: 60 }, sets: [{ w: 60, r: 5, done: false }] }
+    renderWorkout([bench, plank()], () => {
+      useStore.getState().update(s => { s.active.workoutView = 'list' })
+      localStorage.setItem(WORK_KEY, JSON.stringify({ endsAt: Date.now() + 5_000, total: 10, label: 'Plank', overtime: false, owner: { idx: 1, i: 0, id: '1001' } }))
+      expect(restoreWork()).toBe(true)
+    })
+    act(() => { vi.advanceTimersByTime(6_000) })
+    expect(useUI.getState().timer).toMatchObject({ kind: 'set', hand: { chain: { id: '1001', i: 1, n: 2 } } })
+    act(() => { vi.advanceTimersByTime(useUI.getState().timer.total * 1000) })
+    expect(useUI.getState().work).toMatchObject({ owner: { idx: 1, i: 1, id: '1001' } })
   })
 
   it('a restored rest still starts the next hold when it runs out', () => {
