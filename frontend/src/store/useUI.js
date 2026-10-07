@@ -112,20 +112,33 @@ let handOver = null
 let hiddenOver = false
 let workInt = null
 let workTick = null
+// The same for the running hold (see runWork): its audio session already let go on a hidden page.
+// Reset by runWork, which every start, resume and restore of a hold goes through.
+let workHiddenOver = false
 let workDone = null
 const MAX_WORK_OVERTIME_SEC = 15 * 60
 
 // The hold's countdown tick, from a start or from a restore after a reload.
 const runWork = (set, get) => {
   stopWorkTicking()
+  workHiddenOver = false
   workTick = () => {
     const wk = get().work
     if (!wk) return
     const left = Math.max(wk.overtime ? -MAX_WORK_OVERTIME_SEC : 0, Math.round((wk.endsAt - Date.now()) / 1000))
     // A hidden page changes nothing on screen — see runRest. A hold has no push to fall back
     // on and nothing to alert: it finishes, and logs its full length, on the tick that runs
-    // when the page is back.
-    if (document.hidden) return
+    // when the page is back. The audio session goes when it runs out, as a rest's does: nothing
+    // is left to count, its end only sounds on screen, and held on it kept the phone's music
+    // paused (under 'playback') for as long as the phone stayed in the pocket. Once.
+    if (document.hidden) {
+      if (left <= 0 && !workHiddenOver) {
+        workHiddenOver = true
+        hush()
+        holdSession(false)
+      }
+      return
+    }
     const seenLive = pageHiddenAt === null
     pageHiddenAt = null
     // Back on screen after a lock or an app switch. The queued countdown froze with the audio

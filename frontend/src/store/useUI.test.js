@@ -777,6 +777,49 @@ describe('a timer that runs while the page is hidden', () => {
     expect(holdSession.mock.calls).toEqual([[false]])
   })
 
+  // The same goes for a hold (owner's call): nothing is left to count once it has run out — its end
+  // only sounds on screen — so the session goes then, once, and the hold still finishes on return.
+  it('a hidden hold that runs out lets go of the audio session then, not when the page is back', () => {
+    const done = vi.fn()
+    useUI.getState().startWork(2, 'Plank', done)
+    goHidden()
+    holdSession.mockClear(); hush.mockClear()
+    vi.advanceTimersByTime(1000)
+    expect(holdSession).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1000)
+    expect(holdSession.mock.calls).toEqual([[false]])
+    expect(hush).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(10_000)
+    expect(holdSession.mock.calls).toEqual([[false]])
+    expect(done).not.toHaveBeenCalled()
+    goVisible()
+    expect(useUI.getState().work).toBe(null)
+    expect(done).toHaveBeenCalledTimes(1)
+  })
+
+  it('and so does the next hold that runs out hidden: once per hold, not once ever', () => {
+    useUI.getState().startWork(2, 'Plank', vi.fn())
+    goHidden()
+    vi.advanceTimersByTime(3000)
+    goVisible()
+    useUI.getState().startWork(2, 'Plank', vi.fn())
+    goHidden()
+    holdSession.mockClear()
+    vi.advanceTimersByTime(3000)
+    expect(holdSession.mock.calls).toEqual([[false]])
+  })
+
+  it('and one counting on past its target (overtime) lets go there too: nothing more sounds while hidden', () => {
+    useStore.setState({ S: { ...useStore.getState().S, timedSetOvertime: true } })
+    useUI.getState().startWork(2, 'Plank', vi.fn())
+    goHidden()
+    holdSession.mockClear()
+    vi.advanceTimersByTime(5000)
+    expect(holdSession.mock.calls).toEqual([[false]])
+    goVisible()
+    expect(useUI.getState().work).toMatchObject({ overtime: true, left: -3 })
+  })
+
   // It still finishes on the first tick back, at its full length, and now also says when it
   // ended: the rest it earned has been counting since then (owner's call; Workout.jsx passes it to
   // startRest as `since`, store/useUI.hidden-hold.test.js). A hold that ends on screen says nothing.
