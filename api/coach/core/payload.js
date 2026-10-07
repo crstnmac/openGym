@@ -98,7 +98,12 @@ function cleanProfile(profile) {
     limitations: text(profile.limitations, PROFILE_TEXT_MAX.limitations),
     likes: text(profile.likes, PROFILE_TEXT_MAX.likes),
     dislikes: text(profile.dislikes, PROFILE_TEXT_MAX.dislikes),
-    notes: text(profile.notes, PROFILE_TEXT_MAX.notes)
+    notes: text(profile.notes, PROFILE_TEXT_MAX.notes),
+    // Height in whole centimetres, asked alongside weight in the intake. With the weigh-ins it
+    // tells the Coach how big a body it is programming for — a starting push-up for someone
+    // tall and heavy is not the one for someone small.
+    // Out of a human range is a typo, not a height to clamp into one.
+    heightCm: (h => (h >= 100 && h <= 250 ? h : null))(count(profile.heightCm, 1, 1000))
   };
 }
 
@@ -542,6 +547,17 @@ export function build(S, opts = {}) {
         since: day((S.workouts || [])[0]?.d),
         workingWeights: Object.entries(best).map(([id, w]) => ({ id: ident(id), name: libraryName(id), best: w }))
       };
+    }
+    // Where they are and where they want to be: a plan for someone at 106 kg aiming for 90
+    // starts differently from one for someone maintaining. The last four weeks of weigh-ins,
+    // or the latest one if they have not weighed in lately — the same category the consent
+    // screen already names, so nothing new leaves.
+    {
+      const since = new Date(); since.setDate(since.getDate() - 28);
+      const recent = weighIns(S, iso(since), null);
+      const series = recent.length ? recent : weighIns(S, null, null).slice(-1);
+      const goal = num(S.targetW) ?? null;
+      if (series.length || goal != null) p.bodyweight = { goal, series };
     }
     if (opts.refine && opts.previous) {
       p.refine = { text: String(opts.refine).slice(0, MAX_NOTE_CHARS), previous: opts.previous };

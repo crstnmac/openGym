@@ -30,6 +30,7 @@ import {
 import { insightsFor, sessionInsights } from '../lib/coach-insights.js'
 import { useCoachStatus, requestReview, requestDebrief, requestPlan, refinePlan, resolvePending, cohortStats, setCohortShare, jobErrorText, awaitedJob, settleAwaited } from '../lib/coach-api.js'
 import { confirmSheet } from '../sheets.jsx'
+import { parseWeighIn, isOnlyWeighIn, recordWeighIn, deltaSincePrevious } from '../lib/weigh-in.js'
 import Icon from '../components/Icon.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 import LineChart from '../components/LineChart.jsx'
@@ -99,9 +100,8 @@ export default function CoachChat() {
   const coach = S.coach || emptyCoach()
   const community = !!config?.coach?.community && !DEMO && !(MOBILE && coachMode === 'byok')
 
-  const send = async () => {
-    const msg = text.trim()
-    if (!msg || busy) return
+  // `echo` false when the message is already in the thread (it was logged as a weigh-in first).
+  const askCoach = async (msg, { echo = true } = {}) => {
     setBusy(true)
     try {
       // A message about a proposed plan refines it. With no plan at all — the first attempt
@@ -109,13 +109,47 @@ export default function CoachChat() {
       // answer that there is no workout to look at, which is how people got stuck.
       if (pending?.kind === 'create' || !(S.routines || []).length) await refinePlan(msg)
       else await requestReview(msg)
-      update(s => appendChat(s, { role: 'user', kind: 'text', text: msg }))
+      if (echo) update(s => appendChat(s, { role: 'user', kind: 'text', text: msg }))
       setText('')
       refresh()
     } catch (e) {
       toast(e.message || t('Could not ask the Coach'))
     }
     setBusy(false)
+  }
+
+  // "106.2 kg this morning" is a weigh-in, not a question. It is recorded exactly like one from
+  // the body-weight sheet — after a yes, never on a guess — and only what is left over, if
+  // anything, goes on to the Coach. The Coach reads weigh-ins from the log, so the next review
+  // sees it either way.
+  const logWeighIn = (msg, wi) => {
+    const prev = deltaSincePrevious(S.bodyweight, wi.w)
+    update(s => {
+      recordWeighIn(s, wi.w)
+      appendChat(s, { role: 'user', kind: 'text', text: msg })
+      appendChat(s, { role: 'coach', kind: 'text', text: prev
+        ? t('Logged {0} {1} for today ({2} {1} since {3}).', fmtNum(wi.w), wi.unit, (prev.delta > 0 ? '+' : '') + fmtNum(prev.delta), fmtDate(prev.since))
+        : t('Logged {0} {1} for today.', fmtNum(wi.w), wi.unit) })
+    })
+    setText('')
+  }
+
+  const send = () => {
+    const msg = text.trim()
+    if (!msg || busy) return
+    const wi = parseWeighIn(msg, S.unit || 'kg')
+    if (!wi) return askCoach(msg)
+    confirmSheet({
+      title: t('Log a weigh-in?'),
+      // Typed in the other unit: show both, so the conversion is never a surprise.
+      message: wi.given.endsWith(' ' + wi.unit)
+        ? t('Record {0} {1} as today’s body weight?', fmtNum(wi.w), wi.unit)
+        : t('Record {0} ({1} {2}) as today’s body weight?', wi.given, fmtNum(wi.w), wi.unit),
+      confirmText: t('Log it'),
+      cancelText: t('Not a weigh-in'),
+      onConfirm: () => { logWeighIn(msg, wi); if (!isOnlyWeighIn(msg)) askCoach(msg, { echo: false }) },
+      onCancel: () => askCoach(msg)
+    })
   }
 
   const ask = async (fn, line) => {

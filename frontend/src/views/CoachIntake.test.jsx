@@ -137,7 +137,7 @@ describe('CoachIntake — the consent screen', () => {
     expect(Date.parse(mocks.S.coach.consent.agreedAt)).not.toBeNaN()
     expect(mocks.S.coach.profile).toBe(null)          // nothing else written yet
     expect(eyebrow()).toBe('Your goal')
-    expect(all('.ob-dot')).toHaveLength(7)
+    expect(all('.ob-dot')).toHaveLength(8)
   })
 
   it('"Not now" writes nothing at all and goes back to the plan', () => {
@@ -217,7 +217,7 @@ describe('CoachIntake — the two answers that gate the flow', () => {
     expect(eyebrow()).toBe('Experience')
     tap('.ob-choice', 'New to lifting')
     cont()
-    expect(eyebrow()).toBe('Schedule')
+    expect(eyebrow()).toBe('Your body')
   })
 
   it('refuses a session shorter than ten minutes', () => {
@@ -245,6 +245,8 @@ describe('CoachIntake — moving around', () => {
   it('Back walks the steps and then leaves for the plan', () => {
     mount(); walkTo('Schedule')
     act(() => host.querySelector('.iconbtn').click())
+    expect(eyebrow()).toBe('Your body')
+    act(() => host.querySelector('.iconbtn').click())
     expect(eyebrow()).toBe('Experience')
     act(() => host.querySelector('.iconbtn').click())
     expect(eyebrow()).toBe('Your goal')
@@ -262,9 +264,11 @@ describe('CoachIntake — moving around', () => {
     expect(mocks.nav).toHaveBeenCalledWith('/coach')
   })
 
-  it('Skip is offered only on the three optional screens, and never on the last one', () => {
+  it('Skip is offered only on the optional screens, and never on the last one', () => {
     mount(); walkTo('Your goal')
     expect(host.querySelector('.ob-skip')).toBe(null)
+    walkTo('Your body')
+    expect(host.querySelector('.ob-skip')).toBeTruthy()
     walkTo('Equipment')
     expect(host.querySelector('.ob-skip')).toBeTruthy()
     act(() => host.querySelector('.ob-skip').click())
@@ -276,14 +280,14 @@ describe('CoachIntake — moving around', () => {
     expect(footBtn().textContent).toContain('Build my plan')
   })
 
-  it('the dots count the seven questions and follow the one on screen', () => {
+  it('the dots count the eight questions and follow the one on screen', () => {
     mount(); walkTo('Your goal')
     const at = () => all('.ob-dot').findIndex(d => d.classList.contains('on'))
-    expect(all('.ob-dot')).toHaveLength(7)
+    expect(all('.ob-dot')).toHaveLength(8)
     expect(at()).toBe(0)
     walkTo('Schedule')
-    expect(at()).toBe(2)
-    expect(all('.ob-dot').filter(d => d.classList.contains('done'))).toHaveLength(2)
+    expect(at()).toBe(3)
+    expect(all('.ob-dot').filter(d => d.classList.contains('done'))).toHaveLength(3)
   })
 })
 
@@ -449,5 +453,46 @@ describe('CoachIntake — the editor behind ?edit=1', () => {
     editing(PROFILE, [{ id: 'c9', role: 'coach', kind: 'text', text: 'hi', at: 1 }])
     mount(); walkTo('Almost there'); cont()
     expect(mocks.S.coach.chat.map(m => m.kind)).toEqual(['text', 'intake'])
+  })
+})
+
+describe('CoachIntake — weight, goal and height', () => {
+  const fields = () => all('.ob-field input')
+
+  it('records today’s weight as a weigh-in, sets the goal, and keeps height in the profile', async () => {
+    mount(); walkTo('Your body')
+    const [w, goal, h] = fields()
+    typeIn(w, '106.7'); typeIn(goal, '90'); typeIn(h, '175')
+    walkTo('Almost there')
+    cont(); await settle()
+    const today = new Date()
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    expect(mocks.S.bodyweight).toEqual([expect.objectContaining({ d: iso, w: 106.7 })])
+    expect(mocks.S.targetW).toBe(90)
+    expect(mocks.S.coach.profile.heightCm).toBe(175)
+    expect(vi.mocked(requestPlan)).toHaveBeenCalledWith(expect.objectContaining({ heightCm: 175 }))
+  })
+
+  it('prefills from the log, and re-saving the same weight does not log it twice', async () => {
+    mocks.S.bodyweight = [{ d: '2026-10-01', w: 106.7, t: 1 }]
+    mocks.S.targetW = 90
+    mount(); walkTo('Your body')
+    const [w, goal] = fields()
+    expect(w.value).toBe('106.7')
+    expect(goal.value).toBe('90')
+    walkTo('Almost there')
+    cont(); await settle()
+    expect(mocks.S.bodyweight).toHaveLength(1)
+  })
+
+  it('skipping the screen writes nothing, and nonsense is ignored', async () => {
+    mount(); walkTo('Your body')
+    const [w, , h] = fields()
+    typeIn(w, '5'); typeIn(h, '17')
+    walkTo('Almost there')
+    cont(); await settle()
+    expect(mocks.S.bodyweight).toEqual([])
+    expect(mocks.S.targetW).toBeUndefined()
+    expect(mocks.S.coach.profile.heightCm).toBe(null)
   })
 })

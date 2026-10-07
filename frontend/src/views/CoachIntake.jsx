@@ -20,7 +20,9 @@ import { requestPlan, disclosure } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import Icon from '../components/Icon.jsx'
-import { Button, TextArea } from '../components/ui.jsx'
+import { Button, TextArea, NumberField } from '../components/ui.jsx'
+import { lastBW } from '../lib/history.js'
+import { recordWeighIn } from '../lib/weigh-in.js'
 import '../coach.css'
 
 const GOALS = [
@@ -59,7 +61,7 @@ export default function CoachIntake() {
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
   const [needConsent] = useState(() => !editing && !hasConsent(S))
-  const STEPS = [...(needConsent ? ['consent'] : []), 'goal', 'experience', 'days', 'length', 'equipment', 'limits', 'extras']
+  const STEPS = [...(needConsent ? ['consent'] : []), 'goal', 'experience', 'body', 'days', 'length', 'equipment', 'limits', 'extras']
   const [step, setStep] = useState(0)
   const [busy, setBusy] = useState(false)
   const [p, setP] = useState(() => ({
@@ -68,13 +70,19 @@ export default function CoachIntake() {
     ...(S.coach?.profile || {})
   }))
   const set = patch => setP(v => ({ ...v, ...patch }))
+  // Weight and goal are not profile answers: they belong to the body-weight log, where the
+  // chart, the goal line and every later review read them. The intake only offers a place to
+  // enter them, prefilled with what the log already holds.
+  const unit = S.unit === 'lb' ? 'lb' : 'kg'
+  const [weight, setWeight] = useState(() => lastBW(S)?.w ?? null)
+  const [goalW, setGoalW] = useState(() => (S.targetW > 0 ? S.targetW : null))
 
   if (!coachAvailable(config, user, { demo: DEMO, mobile: MOBILE, coachMode })) { nav('/home', { replace: true }); return null }
 
   const key = STEPS[step]
   const last = step === STEPS.length - 1
   const canNext = key === 'goal' ? !!p.goal : key === 'experience' ? !!p.experience : key === 'length' ? p.sessionMin >= 10 : true
-  const optional = ['equipment', 'limits', 'extras'].includes(key)
+  const optional = ['body', 'equipment', 'limits', 'extras'].includes(key)
 
   const next = () => (last ? finish() : setStep(step + 1))
   const back = () => (step ? setStep(step - 1) : nav(editing ? '/coach' : '/plan'))
@@ -87,8 +95,15 @@ export default function CoachIntake() {
   const finish = async () => {
     // `??`, not `||`: only a missing answer takes the default. Nought is an answer, and the clamp
     // turns it into one day like every other count below the floor.
-    const profile = { ...p, daysPerWeek: Math.min(7, Math.max(1, p.daysPerWeek ?? 3)) }
+    const h = Math.round(Number(p.heightCm) || 0)
+    const profile = { ...p, daysPerWeek: Math.min(7, Math.max(1, p.daysPerWeek ?? 3)), heightCm: h >= 100 && h <= 250 ? h : null }
+    const [lo, hi] = unit === 'lb' ? [55, 770] : [25, 350]
+    const okW = v => v != null && v >= lo && v <= hi
     update(s => {
+      // A weigh-in only when the number is new — re-saving the profile with the prefilled
+      // weight must not log the same reading again under today's date.
+      if (okW(weight) && weight !== lastBW(s)?.w) recordWeighIn(s, weight)
+      if (okW(goalW)) s.targetW = Math.round(goalW * 10) / 10
       const c = (s.coach = s.coach || emptyCoach())
       c.profile = profile
       // The conversation opens with the answers — rendered from the profile, so an edit later
@@ -143,6 +158,18 @@ export default function CoachIntake() {
         <div className="ob-choices">
           {EXPERIENCE.map(([v, label, sub, icon]) => <Choice key={v} on={p.experience === v} icon={icon} title={t(label)} sub={t(sub)} onClick={() => set({ experience: v })} />)}
         </div>
+      </>}
+
+      {key === 'body' && <>
+        <div className="ob-eyebrow">{t('Your body')}</div>
+        <h1 className="ob-h">{t('Where are you now?')}</h1>
+        <p className="ob-p">{t('Your weight goes into your weigh-ins, so the Coach can see the trend. Height helps it pick where to start.')}</p>
+        <div className="ob-sub" style={{ marginTop: 0 }}>{t('Weight today ({0})', unit)}</div>
+        <div className="ob-field"><NumberField className="field" value={weight} nullable onChange={setWeight} placeholder={unit === 'lb' ? '235' : '106.7'} aria-label={t('Weight today ({0})', unit)} /></div>
+        <div className="ob-sub" style={{ marginTop: 4 }}>{t('Goal weight ({0})', unit)}</div>
+        <div className="ob-field"><NumberField className="field" value={goalW} nullable onChange={setGoalW} placeholder={t('optional')} aria-label={t('Goal weight ({0})', unit)} /></div>
+        <div className="ob-sub" style={{ marginTop: 4 }}>{t('Height (cm)')}</div>
+        <div className="ob-field"><NumberField className="field" decimal={false} value={p.heightCm ?? null} nullable onChange={v => set({ heightCm: v })} placeholder="175" aria-label={t('Height (cm)')} /></div>
       </>}
 
       {key === 'days' && <>

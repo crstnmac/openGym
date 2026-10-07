@@ -372,6 +372,7 @@ export function profileLines(p) {
   if (exp) lines.push(t(exp))
   if (p.daysPerWeek) lines.push(p.daysPerWeek === 1 ? t('1 day a week') : t('{0} days a week', p.daysPerWeek))
   if (p.sessionMin) lines.push(t('{0} min per session', p.sessionMin))
+  if (p.heightCm) lines.push(t('Height: {0} cm', p.heightCm))
   if (p.equipment?.length) lines.push(p.equipment.join(', '))
   if (p.limitations) lines.push(t('Limits: {0}', p.limitations))
   if (p.likes) lines.push(t('Likes: {0}', p.likes))

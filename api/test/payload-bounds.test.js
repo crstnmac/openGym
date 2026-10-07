@@ -62,7 +62,7 @@ test('a profile of the wrong shape reads as absent instead of crashing or leakin
   });
   assert.deepEqual(p.coachProfile, {
     goal: null, experience: null, daysPerWeek: null, preferredDays: [], sessionMin: null,
-    equipment: [], limitations: '', likes: '', dislikes: '', notes: ''
+    equipment: [], limitations: '', likes: '', dislikes: '', notes: '', heightCm: null
   });
   // A bare-string equipment used to reach librarySlice's .map and throw; now it is no filter.
   assert.ok(p.library.length > 0);
@@ -81,7 +81,8 @@ test('weekdays are read as weekdays: nothing becomes Sunday, and zero days or mi
 test('a real intake passes through unchanged', () => {
   const intake = {
     goal: 'muscle', experience: 'returning', daysPerWeek: 4, preferredDays: [1, 2, 4, 5], sessionMin: 75,
-    equipment: ['dumbbell', 'barbell'], limitations: 'Left shoulder clicks overhead.', likes: 'deadlifts', dislikes: 'lunges', notes: 'Arms by spring.'
+    equipment: ['dumbbell', 'barbell'], limitations: 'Left shoulder clicks overhead.', likes: 'deadlifts', dislikes: 'lunges', notes: 'Arms by spring.',
+    heightCm: 175
   };
   const p = payload.build(sampleState(), { handle: 'h'.repeat(16), kind: 'create', intake });
   assert.deepEqual(p.coachProfile, intake);
@@ -222,4 +223,29 @@ test('the cohort is bounded where it joins the payload, whoever built it', () =>
     assert.equal(p.cohort.exercises[1].name, 'Bench');
     assert.equal(p.cohort.exercises[1].median, 60);
   }
+});
+
+test('height: whole centimetres in a human range, anything else is absent', () => {
+  const h = v => payload.build(sampleState(), { handle: 'h'.repeat(16), kind: 'create', intake: { goal: 'fatloss', heightCm: v } }).coachProfile.heightCm;
+  assert.equal(h(175), 175);
+  assert.equal(h('180.4'), 180);
+  assert.equal(h(5), null, 'a typo is not clamped into a height');
+  assert.equal(h(1750), null);
+  assert.equal(h({ cm: 175 }), null);
+  assert.equal(h(undefined), null);
+});
+
+test('a new plan sees where they are and where they want to be', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const old = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
+  const build = S => payload.build(S, { handle: 'h'.repeat(16), kind: 'create', intake: { goal: 'fatloss' } });
+  // Recent weigh-ins and the goal.
+  let p = build(sampleState({ targetW: 90, bodyweight: [{ d: old, w: 110 }, { d: today, w: 106.7 }] }));
+  assert.deepEqual(p.bodyweight, { goal: 90, series: [{ d: today, w: 106.7 }] });
+  // Nothing recent: the latest reading still says where they are.
+  p = build(sampleState({ targetW: null, bodyweight: [{ d: old, w: 110 }] }));
+  assert.deepEqual(p.bodyweight, { goal: null, series: [{ d: old, w: 110 }] });
+  // Nothing at all: no bodyweight key, as before.
+  p = build(sampleState({ targetW: null, bodyweight: [] }));
+  assert.equal(p.bodyweight, undefined);
 });
