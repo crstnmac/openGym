@@ -1,0 +1,73 @@
+# Dokploy deployment for gym.criston.dev — builds api + web from this repo's source.
+#
+# Differs from docker-compose.yml in three ways, all because Dokploy puts every stack's
+# containers on the shared `dokploy-network`:
+#  - the API service is `opengym-api`, not `api` (a plain `api` collides with other stacks
+#    on that network, and nginx ends up proxying to the wrong container). Set
+#    BACKEND=opengym-api in the environment so the web image's nginx points at it.
+#  - no host port: Traefik routes gym.criston.dev → web:80 (the domain is set in Dokploy).
+#  - healthchecks every 30s with a short start window; the images default to 5 min, and
+#    Traefik won't route to a container until it reports healthy.
+#
+# Data and media live in Dokploy's ../files folder, which survives redeploys and source
+# switches. Back up ../files/data — it holds every profile, passkey and workout.
+
+services:
+  # One-time: download exercise images + GIFs (~140 MB). Skipped if already present.
+  media:
+    image: alpine/git
+    volumes:
+      - ../files/media/img:/out/img
+      - ../files/media/gif:/out/gif
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ -z "$$(ls -A /out/img 2>/dev/null)" ]; then
+          echo "Downloading exercise media (~140 MB, one time)..."
+          git clone --depth 1 https://github.com/hasaneyldrm/exercises-dataset /tmp/ds
+          cp /tmp/ds/images/*.jpg /out/img/ && cp /tmp/ds/videos/*.gif /out/gif/
+          echo "Exercise media ready ($$(ls /out/img | wc -l) images)."
+        else
+          echo "Exercise media already present - skipping download."
+        fi
+    restart: "no"
+
+  opengym-api:
+    build:
+      context: ./api
+      target: ${API_TARGET:-default}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=3000
+      - DATA_DIR=/data
+    volumes:
+      - ../files/data:/data   # users, passkeys, per-user state, session secret
+    healthcheck:
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 2s
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      media:
+        condition: service_completed_successfully
+      opengym-api:
+        condition: service_started
+    volumes:
+      - ../files/media/img:/usr/share/nginx/html/img:ro
+      - ../files/media/gif:/usr/share/nginx/html/gif:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:80/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 2s
