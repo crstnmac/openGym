@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Workout from './Workout.jsx'
 import { DEF, useStore } from '../store/useStore.js'
 import { useUI, restoreWork, restoreRest, WORK_KEY, REST_KEY } from '../store/useUI.js'
-import { beep, chime, vibrate, alertBuzz } from '../lib/sound.js'
+import { beep, chime, vibrate, alertBuzz, hush, holdSession } from '../lib/sound.js'
 
 vi.mock('../lib/sound.js', () => ({ beep: vi.fn(), chime: vi.fn(), vibrate: vi.fn(), alertBuzz: vi.fn(), restOver: vi.fn(), unlock: vi.fn(), countdown: vi.fn(), hush: vi.fn(), holdSession: vi.fn() }))
 vi.mock('../lib/api.js', () => ({ api: vi.fn(() => Promise.resolve({})), appBase: () => '/' }))
@@ -153,6 +153,24 @@ describe('a per-side hold', () => {
     const pills = [...container.querySelectorAll('.sidepill')]
     expect(pills.map(p => p.textContent)).toEqual(['Left', 'Right', 'Left', 'Right'])
     for (const p of pills) expect([p.dataset.l, p.dataset.r]).toEqual(['Left', 'Right'])
+  })
+})
+
+// Moving an exercise up or down drops a hold's callback before the indexes shift (moveUnitAt), and
+// that used to call off the count-in of the rest running at the time and hand the phone's volume
+// buttons back to the ringer for the rest of it.
+describe('a move during a rest', () => {
+  it('leaves the rest counting you in, with the audio session still held', () => {
+    const bench = () => ({ id: '0025', target: { mode: 'reps', sets: 2, reps: 5, weight: 60 }, sets: [{ w: 60, r: 5, done: false }, { w: 60, r: 5, done: false }] })
+    renderWorkout([bench(), plank()], () => { useStore.getState().update(s => { s.wc = { exerciseButtons: true } }) })
+    act(() => container.querySelectorAll('[role="checkbox"]')[0].click())
+    expect(useUI.getState().timer).toMatchObject({ kind: 'set', forIdx: 0 })
+    vi.mocked(hush).mockClear(); vi.mocked(holdSession).mockClear()
+    act(() => container.querySelector('button[aria-label="Move down"]').click())
+    expect(useStore.getState().S.active.entries.map(e => e.id)).toEqual(['1001', '0025'])
+    expect(useUI.getState().timer).toMatchObject({ kind: 'set', forIdx: 1 })
+    expect(hush).not.toHaveBeenCalled()
+    expect(holdSession).not.toHaveBeenCalled()
   })
 })
 

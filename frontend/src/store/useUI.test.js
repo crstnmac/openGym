@@ -475,6 +475,29 @@ describe('the countdown a timer queues', () => {
     expect(holdSession).toHaveBeenLastCalledWith(false)
   })
 
+  // The two never run together, but each is stopped where the other may be running: a move up or
+  // down mid-rest stops "the hold" to drop its callback before the indexes shift, and the closing
+  // set of one exercise stops "the rest" while a hold runs on another. The count-in queue and the
+  // audio session are shared, so stopping the timer that is not running took the other's with it.
+  it('stopping the hold mid-rest leaves the rest\'s count-in and audio session alone', () => {
+    useUI.getState().startRest(90, 0, { kind: 'set' })
+    hush.mockClear(); holdSession.mockClear()
+    useUI.getState().stopWork()
+    useUI.getState().abandonWork()
+    expect(hush).not.toHaveBeenCalled()
+    expect(holdSession).not.toHaveBeenCalled()
+    expect(useUI.getState().timer).toMatchObject({ left: 90 })
+  })
+
+  it('and stopping the rest mid-hold leaves the hold\'s alone', () => {
+    useUI.getState().startWork(45, 'Plank', () => {})
+    hush.mockClear(); holdSession.mockClear()
+    useUI.getState().stopRest()
+    expect(hush).not.toHaveBeenCalled()
+    expect(holdSession).not.toHaveBeenCalled()
+    expect(useUI.getState().work).toMatchObject({ left: 45 })
+  })
+
   it('with no timer running there is nothing to re-queue', () => {
     useUI.getState().restartCountdown()
     expect(countdown).not.toHaveBeenCalled()

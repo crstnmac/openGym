@@ -476,8 +476,10 @@ export const useUI = create((set, get) => ({
     if (left != null) countdown(useStore.getState().S.sound, left)
   },
   stopRest() {
-    hush()
-    holdSession(false)
+    // The count-in and the audio session are shared with the hold, so they are called off only
+    // when there is a rest to call them off for: the closing set of one exercise stops the rest
+    // while a hold may be running on another, and that hold's count-in is not this one's to end.
+    if (get().timer) { hush(); holdSession(false) }
     stopRestTicking()
     // Skip, Dismiss, a rest replacing this one and "rest off" all take the native alarm and
     // its notifications down with it, or the alert fires after the user already moved on.
@@ -549,8 +551,9 @@ export const useUI = create((set, get) => ({
   },
   // Abandon without logging anything.
   stopWork() {
-    hush()
-    holdSession(false)
+    // Only a hold's own count-in and audio session, as in stopRest: moving an exercise up or down
+    // stops "the hold" mid-rest to drop its callback, and used to silence the rest's last seconds.
+    if (get().work) { hush(); holdSession(false) }
     stopWorkTicking()
     workDone = null
     set({ work: null })
