@@ -2852,6 +2852,60 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /api/admin/coach/codex-login:
+    post:
+      tags: [admin, coach]
+      operationId: postAdminCoachCodexLogin
+      summary: 'Admin: start a ChatGPT sign-in for the Codex provider'
+      description: |
+        Runs `codex login --device-auth` inside the api container and returns the link and
+        one-time code it printed. The admin approves the code on OpenAI's own page; the CLI
+        writes its refreshable login cache to `/coach-auth` and the credential is filed as
+        type `chatgpt-cli`. The tokens never pass through this server. If a sign-in is already
+        pending, that one is returned. Needs the `coach` api image.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                account: { type: string, description: 'Label for whose ChatGPT account this is — shown on the admin card and the Coach screen.' }
+      responses:
+        '200':
+          description: The sign-in's state; `url` and `code` are set once the CLI has printed them.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CodexLoginStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    get:
+      tags: [admin, coach]
+      operationId: getAdminCoachCodexLogin
+      summary: 'Admin: poll the ChatGPT sign-in for the Codex provider'
+      responses:
+        '200':
+          description: The sign-in's state — `done` once the credential is filed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CodexLoginStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/coach/codex-login/cancel:
+    post:
+      tags: [admin, coach]
+      operationId: postAdminCoachCodexLoginCancel
+      summary: 'Admin: cancel a pending ChatGPT sign-in'
+      responses:
+        '200':
+          description: The sign-in's state after cancelling (`cancelled`, or whatever it already was).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CodexLoginStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
 components:
   securitySchemes:
     cookieAuth:
@@ -3014,6 +3068,16 @@ components:
       type: object
       properties:
         ok: { type: boolean, const: true }
+
+    CodexLoginStatus:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [idle, pending, done, failed, cancelled] }
+        url: { type: [string, 'null'], description: "OpenAI's verification page, once printed." }
+        code: { type: [string, 'null'], description: 'The one-time code to enter there (expires in 15 minutes).' }
+        error: { type: [string, 'null'] }
+        startedAt: { type: string, format: date-time }
 
     PasskeyList:
       type: object

@@ -21,7 +21,7 @@ rest of this document applies to you.
 | **Google Gemini** | plain HTTPS to `generativelanguage.googleapis.com` | an API key | default |
 | **OpenAI-compatible endpoint** | plain HTTPS to a URL you give it — Ollama, LM Studio, vLLM, OpenRouter, a gateway of your own | an API key, optional | default |
 | **Claude (Anthropic)** | the Claude Agent SDK, inside the container | a `claude setup-token` | `coach` |
-| **Codex (OpenAI)** | the Codex CLI, inside the container | Codex's own device sign-in | `coach` |
+| **Codex (OpenAI)** | the Codex CLI, inside the container | **Sign in with ChatGPT** on the admin card (your subscription), or an OpenAI API key | `coach` |
 
 The first four spawn nothing. A job is one HTTPS request from the api process, so there is no
 child process to drop privileges on, no runtime to carry in the image, and nothing to install:
@@ -160,6 +160,15 @@ The card also states two things worth reading before anyone uses it: whether job
 unprivileged, and which account is being spent.
 
 **4. Use it** — as above.
+
+**Codex with a ChatGPT subscription.** Pick the **Codex (OpenAI)** chip and press **Sign in with
+ChatGPT**. The server runs `codex login --device-auth` in the container and shows you the link and
+the one-time code it printed; open the link, sign in with the ChatGPT account whose plan should pay,
+and enter the code (it expires in 15 minutes). The card notices by itself when you have approved it.
+The tokens go from OpenAI straight to the CLI's cache in `/coach-auth` — they never pass through the
+browser or `coach.json`, which only records that a login exists and whose it is. **Remove** signs the
+CLI out again. Like a Claude setup token, a ChatGPT sign-in is one person's subscription, so it binds
+to the first profile that spends it.
 
 > **On a multi-profile instance, read [Whose account pays](#whose-account-pays) first.** An API
 > key is shared by every profile under the daily limits. A *personal* credential — a Claude Code

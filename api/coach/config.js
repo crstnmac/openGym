@@ -62,7 +62,10 @@ export const PROVIDERS = {
   // somewhere is CREDENTIAL_HOME — outside ./data, so `tar czf … data/` cannot capture it.
   codex: {
     label: 'Codex (OpenAI)', runtime: 'Codex CLI',
-    apiKeyEnv: 'CODEX_API_KEY', oauthEnv: null, credentialHomeEnv: 'CODEX_HOME'
+    apiKeyEnv: 'CODEX_API_KEY', oauthEnv: null, credentialHomeEnv: 'CODEX_HOME',
+    // A ChatGPT subscription signs in with the CLI's own device-code flow (codex-login.js),
+    // which leaves its refreshable cache in CREDENTIAL_HOME rather than on the environment.
+    deviceLogin: true
   },
   // The plain-HTTPS providers — Anthropic, OpenAI, Gemini and any OpenAI-compatible endpoint.
   // Described once in core/providers.js so the phone's picker and this table cannot disagree.
@@ -264,7 +267,7 @@ export function credentialFor(uid) {
    the provider terms forbid. An API key is what an admin pastes so their household can use the
    Coach; binding it to whoever happened to click first would just look broken, and the daily
    caps are what bound its spend. */
-export const isPersonalCredential = type => type === 'cli-token' || type === 'oauth';
+export const isPersonalCredential = type => type === 'cli-token' || type === 'oauth' || type === 'chatgpt-cli';
 
 /** First profile to actually spend the instance credential binds it — a personal credential
  *  only; an API key is shared by every profile on the instance. */

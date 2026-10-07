@@ -75,8 +75,11 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Codex ships as a CLI rather than a library, so it is installed rather than resolved, and
 # bubblewrap is its sandbox — a Codex requirement, which is why neither appears in the default
 # target or anywhere in this tree until now.
+# Pinned so a rebuild cannot quietly change the CLI whose flags the adapter depends on
+# (coach/adapters/codex.js, coach/codex-login.js). Bump deliberately, with the tests.
+ARG CODEX_VERSION=0.160.1
 RUN apk add --no-cache bubblewrap \
- && npm install -g @openai/codex \
+ && npm install -g @openai/codex@${CODEX_VERSION} \
  && npm cache clean --force
 
 # Where Codex keeps its refreshable login cache. Deliberately a sibling of /data rather than a

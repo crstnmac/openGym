@@ -111,7 +111,7 @@ export default function AdminCoach() {
     { title: 'Testing', hint: 'A built-in fake that answers instantly, so the whole loop can be tried without an account.', items: d.providers.filter(p => TESTING_IDS.includes(p.id)) }
   ]
 
-  const hasCredentialStep = !!(meta.setupToken || meta.apiKey)
+  const hasCredentialStep = !!(meta.setupToken || meta.apiKey || meta.deviceLogin)
   const step1Done = !!d.provider
   const step2Done = hasEndpoint
   const step3Done = authed
@@ -192,6 +192,8 @@ export default function AdminCoach() {
         {authState === 'connected' ? <>
           <div className="adm-hint">Connected{d.auth.account ? ' as ' + d.auth.account : ''} via {credentialLabel(d.auth.type)}{d.auth.connectedAt ? ' · added ' + rel(d.auth.connectedAt) : ''}. The key is stored encrypted and is never shown again.</div>
           <div className="adm-actions">
+            {meta.deviceLogin && <Button size="sm" variant="tinted" icon="key" disabled={busy}
+              onClick={() => openSheet(close => <DeviceLoginSheet close={close} onDone={load} />)}>Sign in again</Button>}
             {meta.apiKey && <Button size="sm" variant="tinted" icon="lock" disabled={busy}
               onClick={() => openSheet(close => <ApiKeySheet close={close} onDone={load} label={meta.label} placeholder={meta.keyPlaceholder} optional={meta.keyOptional} />)}>Replace key</Button>}
             <Button size="sm" danger disabled={busy} onClick={disconnect}>Remove</Button>
@@ -201,13 +203,20 @@ export default function AdminCoach() {
             The stored credential can't be decrypted. This usually means <code>./data</code> was restored without its <code>secret</code> file. Add the key again to fix it.
           </div>}
           {authState === 'optional' && <div className="adm-hint">This endpoint works without a key. Add one only if your server asks for it (OpenRouter does; a model on your own network usually does not).</div>}
+          {authState === 'none' && d.auth?.lost && <div className="adm-hint" style={{ color: 'var(--red)' }}>
+            The ChatGPT sign-in is gone from <code>/coach-auth</code> (a fresh volume?). Sign in again.
+          </div>}
           {authState === 'none' && <div className="adm-hint">{meta.setupToken
             ? 'Paste either a Claude Code setup token (your subscription) or an Anthropic API key (pay per use).'
-            : 'Paste an API key from the provider\'s console. It is stored encrypted on this server and sent to the provider only while a job runs.'}</div>}
+            : meta.deviceLogin
+              ? 'Sign in with your ChatGPT account (Plus, Pro, Business…) to use your subscription, or paste an OpenAI API key (pay per use).'
+              : 'Paste an API key from the provider\'s console. It is stored encrypted on this server and sent to the provider only while a job runs.'}</div>}
           <div className="adm-actions">
+            {meta.deviceLogin && <Button size="sm" variant="primary" icon="key" disabled={busy}
+              onClick={() => openSheet(close => <DeviceLoginSheet close={close} onDone={load} />)}>Sign in with ChatGPT</Button>}
             {meta.setupToken && <Button size="sm" variant="primary" icon="key" disabled={busy}
               onClick={() => openSheet(close => <SetupTokenSheet close={close} onDone={load} label={meta.label} />)}>Add Claude Code token</Button>}
-            {meta.apiKey && <Button size="sm" variant={meta.setupToken ? undefined : 'primary'} icon="lock" disabled={busy}
+            {meta.apiKey && <Button size="sm" variant={meta.setupToken || meta.deviceLogin ? undefined : 'primary'} icon="lock" disabled={busy}
               onClick={() => openSheet(close => <ApiKeySheet close={close} onDone={load} label={meta.label} placeholder={meta.keyPlaceholder} optional={meta.keyOptional} />)}>
               {meta.keyOptional ? 'Add API key (optional)' : 'Add API key'}</Button>}
           </div>
@@ -360,11 +369,11 @@ const credentialHint = (auth, meta) => {
   if (s === 'not-required') return 'Not needed'
   if (s === 'optional') return 'Optional for this endpoint'
   if (s === 'unreadable') return 'Stored key can\'t be read — add it again'
-  return meta.setupToken ? 'Token or API key needed' : 'API key needed'
+  return meta.setupToken ? 'Token or API key needed' : meta.deviceLogin ? 'ChatGPT sign-in or API key needed' : 'API key needed'
 }
 
 const credentialLabel = type => ({
-  'cli-token': 'Claude Code setup token', 'chatgpt-cli': 'ChatGPT CLI login', oauth: 'legacy token', apikey: 'API key'
+  'cli-token': 'Claude Code setup token', 'chatgpt-cli': 'ChatGPT sign-in', oauth: 'legacy token', apikey: 'API key'
 }[type] || 'credential')
 
 // The failure classes jobs.js emits, in words an operator can act on.
@@ -411,6 +420,73 @@ function SetupTokenSheet({ close, onDone, label }) {
     <TextField value={account} placeholder="whose account is this? (e.g. you@example.com)" onChange={e => setAccount(e.target.value)} />
     <div style={{ height: 12 }} />
     <Button variant="primary" disabled={busy || !token.trim()} onClick={save}>Save token</Button>
+    <div style={{ height: 8 }} />
+  </>
+}
+
+/* ------------------------------- ChatGPT sign-in -------------------------------- */
+
+/* Codex's own device-code login, run by the server. This sheet only ever holds the link and the
+   one-time code the CLI printed — the approval happens on OpenAI's page, and the tokens go from
+   OpenAI to the CLI's cache on the server without passing through the browser at all. */
+function DeviceLoginSheet({ close, onDone }) {
+  const toast = useUI(s => s.toast)
+  const [account, setAccount] = useState('')
+  const [st, setSt] = useState(null)      // { status, url, code, error }
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (st?.status !== 'pending') return
+    let live = true
+    const tick = setInterval(async () => {
+      try {
+        const r = await api('/api/admin/coach/codex-login')
+        if (!live) return
+        setSt(r)
+        if (r.status === 'done') { clearInterval(tick); toast('Signed in ✅'); close(); onDone() }
+      } catch { /* keep polling; the next tick will say */ }
+    }, 3000)
+    return () => { live = false; clearInterval(tick) }
+  }, [st?.status])
+
+  const begin = async () => {
+    setBusy(true)
+    try { setSt(await api('/api/admin/coach/codex-login', { method: 'POST', body: JSON.stringify({ account: account.trim() }) })) }
+    catch (e) { toast(e.message) }
+    setBusy(false)
+  }
+  const cancel = async () => {
+    if (st?.status === 'pending') { try { await api('/api/admin/coach/codex-login/cancel', { method: 'POST', body: '{}' }) } catch { /* closing anyway */ } }
+    close()
+  }
+  const copy = async () => { try { await navigator.clipboard.writeText(st.code); toast('Code copied') } catch { /* select it by hand */ } }
+
+  const pending = st?.status === 'pending'
+  return <>
+    <h3>Sign in with ChatGPT</h3>
+    {!pending && <>
+      <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 12 }}>
+        The server starts Codex's own sign-in and shows you a one-time code. You approve it on OpenAI's page with the ChatGPT account whose subscription the Coach should use. Its login stays on this server in <code>/coach-auth</code>.
+      </div>
+      {st && st.status !== 'idle' && <div className="adm-result bad" style={{ marginBottom: 10 }}><b>{st.status === 'cancelled' ? 'Cancelled' : 'Sign-in failed'}</b>{st.error || ''}</div>}
+      <TextField value={account} placeholder="whose account is this? (e.g. you@example.com)" onChange={e => setAccount(e.target.value)} />
+      <div style={{ height: 12 }} />
+      <Button variant="primary" icon="key" disabled={busy} onClick={begin}>{busy ? 'Starting…' : 'Get a sign-in code'}</Button>
+    </>}
+    {pending && <>
+      {st.url && st.code ? <>
+        <div className="muted small" style={{ lineHeight: 1.5, marginBottom: 10 }}>1. Open OpenAI's sign-in page and log in to ChatGPT:</div>
+        <a className="adm-link" href={st.url} target="_blank" rel="noopener noreferrer" style={{ wordBreak: 'break-all' }}>{st.url}</a>
+        <div className="muted small" style={{ lineHeight: 1.5, margin: '14px 0 6px' }}>2. Enter this code there (it expires in 15 minutes):</div>
+        <div className="row" style={{ gap: 10, alignItems: 'center' }}>
+          <code style={{ fontSize: 22, letterSpacing: '.08em', fontWeight: 700 }}>{st.code}</code>
+          <Button size="sm" variant="tinted" onClick={copy}>Copy</Button>
+        </div>
+        <div className="dim small" style={{ marginTop: 14 }}>Waiting for you to approve it… this closes by itself when it's done.</div>
+      </> : <div className="dim small">Starting the Codex sign-in…</div>}
+    </>}
+    <div style={{ height: 12 }} />
+    <Button variant="ghost" onClick={cancel}>{pending ? 'Cancel sign-in' : 'Close'}</Button>
     <div style={{ height: 8 }} />
   </>
 }

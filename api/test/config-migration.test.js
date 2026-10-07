@@ -63,7 +63,7 @@ test('switching provider keeps every key; each provider has its own model and bi
 
   cfg.save({ provider: 'openai' });
   assert.equal(cfg.authFor(), null, 'openai has no key yet');
-  assert.equal(cfg.modelFor(), 'gpt-5.6', 'openai falls back to its default model');
+  assert.equal(cfg.modelFor(), 'gpt-6.1-sol', 'openai falls back to its default model');
   assert.equal(cfg.boundUidFor(), null, 'the binding belongs to the anthropic key');
   cfg.saveAuth('openai', { type: 'apikey', data: cfg.encrypt({ token: 'o' }) });
 

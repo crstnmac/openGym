@@ -35,7 +35,9 @@ services:
   opengym-api:
     build:
       context: ./api
-      target: ${API_TARGET:-default}
+      # `coach` adds the Claude Agent SDK and the Codex CLI (subscription sign-ins). Set
+      # API_TARGET=default in the environment for the slim image with HTTPS providers only.
+      target: ${API_TARGET:-coach}
     restart: unless-stopped
     env_file: .env
     environment:
@@ -43,6 +45,10 @@ services:
       - DATA_DIR=/data
     volumes:
       - ../files/data:/data   # users, passkeys, per-user state, session secret
+      # Codex's ChatGPT login cache. A named volume so Docker seeds it from the image with the
+      # `coach` user's ownership (a bind mount would arrive root-owned and unwritable), and a
+      # sibling of /data so the documented `tar czf … data/` backup never captures a live token.
+      - coach-auth:/coach-auth
     healthcheck:
       interval: 30s
       timeout: 5s
@@ -71,3 +77,6 @@ services:
       retries: 3
       start_period: 10s
       start_interval: 2s
+
+volumes:
+  coach-auth:

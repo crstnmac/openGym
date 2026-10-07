@@ -5,6 +5,7 @@
  * stop the CLI reaching for state a sandboxed job does not have.
  */
 import { run } from './spawn.js';
+import { STORE_OVERRIDE } from '../codex-login.js';
 
 const CLI = 'codex';
 
@@ -20,7 +21,8 @@ export function argvFor(model) {
     'exec', '-',              // non-interactive; '-' reads the prompt from stdin
     '--skip-git-repo-check',  // the job dir is a bare mkdtemp, not a repo -- without this it refuses to run
     '--ephemeral',            // do not write session files; the job dir dies with the job anyway
-    '--ignore-user-config'    // $CODEX_HOME/config.toml would be an admin-invisible input to every job
+    '--ignore-user-config',   // $CODEX_HOME/config.toml would be an admin-invisible input to every job
+    ...STORE_OVERRIDE         // read a ChatGPT login from $CODEX_HOME/auth.json, never an OS keyring
   ];
   if (model) argv.push('--model', model);
   return argv;

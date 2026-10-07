@@ -74,9 +74,11 @@ test('the Codex adapter runs with the three flags that keep host state out of a 
   // Same reasoning as the Claude lockdown above: these are not stylistic. --ignore-user-config
   // stops $CODEX_HOME/config.toml being an admin-invisible input to every job, --ephemeral stops
   // session files being written, and --skip-git-repo-check is what lets the bare mkdtemp job dir
-  // run at all. Dropping any of them was a green build before this test existed.
+  // run at all. Dropping any of them was a green build before this test existed. The file-store
+  // override is what lets a job find a ChatGPT sign-in at all (codex-login.js writes it there).
   assert.deepEqual(argvFor(null), [
-    'exec', '-', '--skip-git-repo-check', '--ephemeral', '--ignore-user-config'
+    'exec', '-', '--skip-git-repo-check', '--ephemeral', '--ignore-user-config',
+    '-c', 'cli_auth_credentials_store="file"'
   ]);
 });
 

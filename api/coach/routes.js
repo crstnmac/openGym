@@ -9,6 +9,7 @@ import * as jobs from './jobs.js';
 import { computeCohort } from './cohort.js';
 import { adapterFor } from './adapters/index.js';
 import { canDropPrivileges } from './adapters/spawn.js';
+import * as codexLogin from './codex-login.js';
 import { DATA_CATEGORIES } from './core/payload.js';
 import { validateBaseUrl, baseUrlFor } from './core/providers.js';
 
@@ -180,6 +181,9 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
           if (!meta.oauthEnv && !meta.apiKeyEnv) return { state: 'not-required' };
           if (!rec || !rec.data) return { state: meta.keyOptional ? 'optional' : 'none' };
           if (!cfgStore.decrypt(rec.data)) return { state: 'unreadable' };
+          // A ChatGPT login is only as good as the cache the CLI wrote. If /coach-auth was lost
+          // (a fresh volume), the record outlives it, and the honest state is "sign in again".
+          if (rec.type === codexLogin.CREDENTIAL_TYPE && !codexLogin.hasLoginCache()) return { state: 'none', lost: true };
           return { state: 'connected', type: rec.type || null, account: rec.account || null, connectedAt: rec.connectedAt || null };
         })(),
         // Whether the privilege drop can actually be performed. Surfaced because the control
@@ -296,8 +300,30 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
       const body = await readBody(req);
       const provider = body.provider !== undefined ? String(body.provider) : cfgStore.load().provider;
       if (!cfgStore.PROVIDERS[provider]) return json(res, 400, { error: 'unknown provider' });
+      const rec = cfgStore.authFor(cfgStore.load(), provider);
       cfgStore.saveAuth(provider, null);
+      // A ChatGPT login is a cache on disk as well as a record here; removing only the record
+      // would leave a live refresh token behind that the next job would quietly pick up again.
+      if (provider === 'codex' && rec && rec.type === codexLogin.CREDENTIAL_TYPE) await codexLogin.logout();
       json(res, 200, { ok: true });
+    },
+
+    /* Sign Codex in with a ChatGPT subscription. Starts the CLI's device-code flow and returns
+       the link and one-time code it printed; the admin approves on OpenAI's page, and the card
+       polls the GET below until the CLI has written its login cache and the credential is filed.
+       The tokens never pass through this server — see codex-login.js. */
+    'POST /api/admin/coach/codex-login': async (req, res) => {
+      if (!requireAdmin(req, res)) return;
+      const body = await readBody(req);
+      json(res, 200, await codexLogin.start({ account: body.account }));
+    },
+    'GET /api/admin/coach/codex-login': async (req, res) => {
+      if (!requireAdmin(req, res)) return;
+      json(res, 200, codexLogin.status());
+    },
+    'POST /api/admin/coach/codex-login/cancel': async (req, res) => {
+      if (!requireAdmin(req, res)) return;
+      json(res, 200, codexLogin.cancel());
     },
 
     /* Still absent: `authMode`, and with it the per-profile credential routes. Instance mode is

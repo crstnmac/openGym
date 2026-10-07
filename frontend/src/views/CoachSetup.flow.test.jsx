@@ -261,15 +261,15 @@ describe('CoachSetup — listing the models', () => {
   }
 
   it('walks the three steps, lists what the endpoint serves and pre-picks the default', async () => {
-    vi.mocked(localModels).mockResolvedValue({ ok: true, models: ['claude-opus-5', 'claude-haiku-4'] })
+    vi.mocked(localModels).mockResolvedValue({ ok: true, models: ['claude-opus-5-5', 'claude-haiku-4'] })
     await withKey()
     await click(btn('List models')); await settle()
 
     expect(all('.card .small').map(s => s.textContent))
       .toEqual(['Loading the exercise catalogue…', 'Checking the endpoint…', 'Ready'])
     const select = host.querySelector('select')
-    expect([...select.options].map(o => o.value)).toEqual(['', 'claude-opus-5', 'claude-haiku-4'])
-    expect(select.value).toBe('claude-opus-5')
+    expect([...select.options].map(o => o.value)).toEqual(['', 'claude-opus-5-5', 'claude-haiku-4'])
+    expect(select.value).toBe('claude-opus-5-5')
     expect(btn('Save and use the Coach')).toBeTruthy()
     expect(btn('List models')).toBeTruthy()                 // still there, to re-list
   })
@@ -279,7 +279,7 @@ describe('CoachSetup — listing the models', () => {
     await withKey()
     await click(btn('List models')); await settle()
     expect(host.querySelector('select').value).toBe('')
-    expect(host.querySelector('select option').textContent).toBe('(claude-opus-5)')
+    expect(host.querySelector('select option').textContent).toBe('(claude-opus-5-5)')
   })
 
   it('an endpoint that will not answer clears the progress and says why', async () => {
@@ -308,7 +308,7 @@ describe('CoachSetup — listing the models', () => {
   })
 
   it('switching provider throws the list away — a model name is not portable', async () => {
-    vi.mocked(localModels).mockResolvedValue({ ok: true, models: ['claude-opus-5'] })
+    vi.mocked(localModels).mockResolvedValue({ ok: true, models: ['claude-opus-5-5'] })
     await withKey()
     await click(btn('List models')); await settle()
     expect(host.querySelector('select')).toBeTruthy()
@@ -317,10 +317,10 @@ describe('CoachSetup — listing the models', () => {
     expect(host.querySelector('select')).toBe(null)
     expect(btn('Save and use the Coach')).toBeUndefined()
 
-    vi.mocked(localModels).mockResolvedValue({ ok: true, models: ['gemini-2.5-pro'] })
+    vi.mocked(localModels).mockResolvedValue({ ok: true, models: ['gemini-3.8-flash'] })
     await click(btn('List models')); await settle()
     expect(localModels).toHaveBeenLastCalledWith({ provider: 'gemini', baseUrl: null }, 'sk-1')
-    expect(host.querySelector('select').value).toBe('gemini-2.5-pro')
+    expect(host.querySelector('select').value).toBe('gemini-3.8-flash')
   })
 })
 
@@ -335,9 +335,9 @@ describe('CoachSetup — saving', () => {
   }
 
   it('writes the mode, the provider and the chosen model, then stores the key and leaves', async () => {
-    await listed(null, ['claude-opus-5'])
+    await listed(null, ['claude-opus-5-5'])
     await click(btn('Save and use the Coach')); await settle()
-    expect(mocks.setCoachLocal).toHaveBeenCalledWith({ mode: 'byok', provider: 'anthropic', model: 'claude-opus-5', baseUrl: null })
+    expect(mocks.setCoachLocal).toHaveBeenCalledWith({ mode: 'byok', provider: 'anthropic', model: 'claude-opus-5-5', baseUrl: null })
     expect(setApiKey).toHaveBeenCalledWith('sk-1')
     expect(mocks.toast).toHaveBeenCalledWith('The Coach is on')
     expect(mocks.nav).toHaveBeenCalledWith('/coach')
@@ -356,7 +356,7 @@ describe('CoachSetup — saving', () => {
   it('does not touch the secure store when the key field was left alone', async () => {
     vi.mocked(getApiKey).mockResolvedValue('sk-saved')
     await mount(); await settle(); await openByok()
-    vi.mocked(localModels).mockResolvedValue({ ok: true, models: ['claude-opus-5'] })
+    vi.mocked(localModels).mockResolvedValue({ ok: true, models: ['claude-opus-5-5'] })
     await click(btn('List models')); await settle()
     await click(btn('Save and use the Coach')); await settle()
     expect(setApiKey).not.toHaveBeenCalled()
@@ -399,7 +399,7 @@ describe('CoachSetup — saving', () => {
 
   // Issue #42: both of these used to leave the button greyed out for ever with no explanation.
   it('a settings write that fails says so, keeps you here and never stores the key', async () => {
-    await listed(null, ['claude-opus-5'])
+    await listed(null, ['claude-opus-5-5'])
     mocks.setCoachLocal.mockRejectedValueOnce(new Error('could not write the settings file'))
     await click(btn('Save and use the Coach')); await settle()
     expect(mocks.toast).toHaveBeenCalledWith('could not write the settings file')
@@ -409,7 +409,7 @@ describe('CoachSetup — saving', () => {
   })
 
   it('a secure-store write that fails says so — but the mode is already on, by design', async () => {
-    await listed(null, ['claude-opus-5'])
+    await listed(null, ['claude-opus-5-5'])
     vi.mocked(setApiKey).mockRejectedValueOnce(new Error('secure storage timed out'))
     await click(btn('Save and use the Coach')); await settle()
     expect(mocks.setCoachLocal).toHaveBeenCalledWith(expect.objectContaining({ mode: 'byok' }))
@@ -434,7 +434,7 @@ describe('CoachSetup — turning it off', () => {
   })
 
   it('forgets the key, the mode and everything the pipeline was holding', async () => {
-    mocks.coachLocal = { mode: 'byok', provider: 'openai', model: 'gpt-5.6' }
+    mocks.coachLocal = { mode: 'byok', provider: 'openai', model: 'gpt-6.1-sol' }
     await mount()
     expect(host.textContent).toContain('Runs on this phone with your own API key')
 
@@ -447,7 +447,7 @@ describe('CoachSetup — turning it off', () => {
   })
 
   it('starts the key picker on the provider the phone was already using', async () => {
-    mocks.coachLocal = { mode: 'byok', provider: 'openai', model: 'gpt-5.6' }
+    mocks.coachLocal = { mode: 'byok', provider: 'openai', model: 'gpt-6.1-sol' }
     await mount(); await openByok()
     expect(chip('OpenAI API').classList.contains('on')).toBe(true)
     expect(field('password').getAttribute('placeholder')).toBe('sk-…')

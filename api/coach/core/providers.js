@@ -14,21 +14,21 @@ export const HTTP_PROVIDERS = Object.freeze({
     label: 'Anthropic API', runtime: 'HTTPS', http: true,
     apiKeyEnv: 'ANTHROPIC_API_KEY', oauthEnv: null,
     defaultBase: 'https://api.anthropic.com',
-    defaultModel: 'claude-opus-5',
+    defaultModel: 'claude-opus-5-5',
     keyPlaceholder: 'sk-ant-…'
   }),
   openai: Object.freeze({
     label: 'OpenAI API', runtime: 'HTTPS', http: true,
     apiKeyEnv: 'OPENAI_API_KEY', oauthEnv: null,
     defaultBase: 'https://api.openai.com',
-    defaultModel: 'gpt-5.6',
+    defaultModel: 'gpt-6.1-sol',
     keyPlaceholder: 'sk-…'
   }),
   gemini: Object.freeze({
     label: 'Google Gemini', runtime: 'HTTPS', http: true,
     apiKeyEnv: 'GEMINI_API_KEY', oauthEnv: null,
     defaultBase: 'https://generativelanguage.googleapis.com',
-    defaultModel: 'gemini-2.5-pro',
+    defaultModel: 'gemini-3.8-flash',
     keyPlaceholder: 'AIza… or AQ.…'
   }),
   // Ollama, LM Studio, vLLM, OpenRouter, a corporate gateway: anything that serves the
