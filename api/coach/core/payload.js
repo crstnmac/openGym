@@ -412,6 +412,31 @@ function weighIns(S, from, to) {
     .filter(b => b.d && b.w !== undefined && (!from || b.d >= from) && (!to || b.d <= to));
 }
 
+/* Tape measurements (waist, hips, ...) between two days, read the way the body-weight series is:
+   same category on the consent screen, so it leaves only with body weight. A summary rather than
+   every reading — per site how many readings there were, the first and the last in the window and
+   the change between them, in cm whatever unit the person sees — plus waist ÷ hips from the latest
+   of each. Duplicated from frontend/src/lib/measurements.js (SITES, the plausible range) for the
+   same reason as the helpers above: the two runtimes share no build step. */
+const MEASURE_SITES = ['neck', 'shoulders', 'chest', 'waist', 'hips', 'arm', 'forearm', 'thigh', 'calf'];
+function measurements(S, from, to) {
+  const days = list(S.measures)
+    .map(m => ({ d: day(m?.d), v: m && typeof m.v === 'object' && m.v ? m.v : {} }))
+    .filter(m => m.d && (!from || m.d >= from) && (!to || m.d <= to))
+    .sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+  const sites = [];
+  for (const site of MEASURE_SITES) {
+    const pts = days.map(m => ({ d: m.d, cm: Number(m.v[site]) })).filter(x => Number.isFinite(x.cm) && x.cm >= 5 && x.cm <= 250);
+    if (!pts.length) continue;
+    const first = pts[0], last = pts[pts.length - 1];
+    sites.push({ site, readings: pts.length, first, last, change: Math.round((last.cm - first.cm) * 10) / 10 });
+  }
+  if (!sites.length) return null;
+  const at = k => sites.find(x => x.site === k)?.last.cm;
+  const ratio = at('waist') && at('hips') ? Math.round((at('waist') / at('hips')) * 100) / 100 : null;
+  return { unit: 'cm', sites, waistToHip: ratio };
+}
+
 /* The room's medians are computed on this server, but from other people's synced workouts —
    state their own clients wrote. cohort.js keeps only catalogue exercises; this copy bounds
    every field again, so what reaches one person's prompt never depends on that filter alone. */
@@ -514,6 +539,8 @@ export function build(S, opts = {}) {
       since.setDate(since.getDate() - 28);
       const dated = !!on && Number.isFinite(since.getTime());
       p.bodyweight = { goal: num(S.targetW) ?? null, series: dated ? weighIns(S, iso(since), on) : [] };
+      const ms = dated ? measurements(S, iso(since), on) : null;
+      if (ms) p.measurements = ms;
     } else {
       p.session = null;
       p.previous = [];
@@ -529,6 +556,10 @@ export function build(S, opts = {}) {
     };
     p.aggregates = aggregates(S, workouts);
     p.bodyweight = { goal: num(S.targetW) ?? null, series: weighIns(S, p.window.from, null) };
+    {
+      const ms = measurements(S, p.window.from, null);
+      if (ms) p.measurements = ms;
+    }
     if (opts.note) p.userNote = String(opts.note).slice(0, MAX_NOTE_CHARS);
     if (opts.cohort) p.cohort = cleanCohort(opts.cohort);
     // A review names mostly what is already trained; 60 candidates is plenty for a swap.
@@ -558,6 +589,12 @@ export function build(S, opts = {}) {
       const series = recent.length ? recent : weighIns(S, null, null).slice(-1);
       const goal = num(S.targetW) ?? null;
       if (series.length || goal != null) p.bodyweight = { goal, series };
+    }
+    // Tape measurements over the last twelve weeks (a slow-moving number), or the latest ones.
+    {
+      const since = new Date(); since.setDate(since.getDate() - 84);
+      const ms = measurements(S, iso(since), null) || measurements(S, null, null);
+      if (ms) p.measurements = ms;
     }
     if (opts.refine && opts.previous) {
       p.refine = { text: String(opts.refine).slice(0, MAX_NOTE_CHARS), previous: opts.previous };

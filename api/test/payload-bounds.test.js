@@ -249,3 +249,29 @@ test('a new plan sees where they are and where they want to be', () => {
   p = build(sampleState({ targetW: null, bodyweight: [] }));
   assert.equal(p.bodyweight, undefined);
 });
+
+test('tape measurements reach the Coach as a summary per site, in cm, and only what is sane', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const ago = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
+  const build = (S, kind = 'create') => payload.build(S, { handle: 'h'.repeat(16), kind, intake: { goal: 'fatloss' } });
+  const S = sampleState({ measures: [
+    { d: ago(40), t: 1, v: { waist: 90, hips: 100, neck: 38 } },
+    { d: ago(20), t: 2, v: { waist: 88.5, hips: 99 } },
+    { d: today, t: 3, v: { waist: 87, hips: 99, bogus: 50, chest: 'x', calf: 900 } }
+  ] });
+  const m = build(S).measurements;
+  assert.equal(m.unit, 'cm');
+  const waist = m.sites.find(s => s.site === 'waist');
+  assert.deepEqual(waist, { site: 'waist', readings: 3, first: { d: ago(40), cm: 90 }, last: { d: today, cm: 87 }, change: -3 });
+  assert.equal(m.sites.find(s => s.site === 'neck').readings, 1, 'a site read once is reported as read once');
+  assert.deepEqual(m.sites.map(s => s.site), ['neck', 'waist', 'hips'], 'unknown sites and values no tape reads are dropped');
+  assert.equal(m.waistToHip, 0.88);
+  // Nothing measured: no key at all, as with body weight.
+  assert.equal(build(sampleState({ measures: [] })).measurements, undefined);
+  assert.equal(build(sampleState({})).measurements, undefined);
+  // A profile whose measures are not a list, or whose entries are junk, cannot break the build.
+  assert.equal(build(sampleState({ measures: 'nope' })).measurements, undefined);
+  assert.equal(build(sampleState({ measures: [null, 7, { d: 'x', v: 5 }, { d: today, v: null }] })).measurements, undefined);
+  // The same summary rides on a review and a debrief.
+  assert.ok(build(S, 'review').measurements.sites.length);
+});

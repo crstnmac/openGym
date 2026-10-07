@@ -81,7 +81,7 @@ const state = routines => ({
   unit: 'kg', lang: 'en', customEx: [], workouts: [{ id: 'w1', name: 'Push Day', d: '2026-09-01', entries: [] }], bodyweight: [], exWeights: {},
   dayPlan: {}, routines, week: {},
   coach: {
-    consent: { agreedAt: '2026-07-01T00:00:00Z', version: 1 },
+    consent: { agreedAt: '2026-07-01T00:00:00Z', version: 2 },
     profile: { goal: 'muscle', experience: 'new', daysPerWeek: 3, sessionMin: 60, preferredDays: [1, 3, 5], equipment: [] },
     log: [], snapshots: [], chat: [{ id: 'c1', role: 'user', kind: 'intake', at: 1 }], timings: []
   },
