@@ -1,0 +1,129 @@
+# Builds the Android APK (the Capacitor shell in frontend/android, docs/MOBILE.md) on GitHub.
+#
+# The official APK comes out of GitLab CI on the upstream project (.gitlab-ci.yml, build:apk),
+# signed with its own key. A fork has no such runner and, by design, no access to that key, so
+# this workflow builds the same APK the same way and signs it with the fork's own.
+#
+# Needs three repository secrets (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_B64       the keystore file, base64 on one line:  base64 -i my.keystore | tr -d '\n'
+#   ANDROID_KEYSTORE_PASSWORD  the keystore password (the key password must be the same)
+#   ANDROID_KEY_ALIAS          the key's alias
+# KEEP THAT KEYSTORE: an update must be signed with the same key or Android refuses to install it
+# over the old one. An APK signed with a different key than the one installed means uninstalling
+# first, and an uninstall takes a phone's local data with it (export a backup before).
+#
+# Runs on every push to main that touches the app, on a `v*` tag (which also publishes a GitHub
+# release with the APK and its checksum), and by hand from the Actions tab. Without the secrets
+# it still builds, but the APK it uploads is unsigned and cannot be installed — a tag then fails
+# instead, so a release never ships a file nobody can open.
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Secrets are not in the environment on a fork's pull request; this workflow has no
+    # pull_request trigger, so they are always there for a run in this repository.
+    env:
+      ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # Java 21 for Gradle (docs/MOBILE.md). The Android SDK and build-tools are already on the
+      # ubuntu runner image ($ANDROID_HOME).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - name: Build the mobile bundle
+        working-directory: frontend
+        run: |
+          npm ci
+          # VITE_MOBILE build + `cap sync` into android/: no backend, media from the CDN.
+          npm run build:mobile
+      - name: Assemble the release APK
+        working-directory: frontend/android
+        run: ./gradlew --no-daemon assembleRelease
+      - name: Sign
+        id: sign
+        run: |
+          set -eu
+          VER="$(node -p "require('./frontend/package.json').version")"
+          UNSIGNED=frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          mkdir -p out
+          if [ -n "${ANDROID_KEYSTORE_B64:-}" ]; then
+            echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            "$BT/zipalign" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/aligned.apk"
+            "$BT/apksigner" sign \
+              --ks "$RUNNER_TEMP/release.jks" \
+              --ks-pass "env:ANDROID_KEYSTORE_PASSWORD" \
+              --ks-key-alias "$ANDROID_KEY_ALIAS" \
+              --key-pass "env:ANDROID_KEYSTORE_PASSWORD" \
+              --out "out/openGym-$VER.apk" "$RUNNER_TEMP/aligned.apk"
+            rm -f "$RUNNER_TEMP/release.jks"
+            "$BT/apksigner" verify --print-certs "out/openGym-$VER.apk"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "::error::$GITHUB_REF_NAME is a release tag but ANDROID_KEYSTORE_B64 is not set."
+            exit 1
+          else
+            echo "::warning::No signing key (ANDROID_KEYSTORE_B64 is not set) — the APK is UNSIGNED and cannot be installed."
+            "$BT/zipalign" -f -p 4 "$UNSIGNED" "out/openGym-$VER-unsigned.apk"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+          # Sideloading means no app store checked the file: publish the digest beside it.
+          (cd out && for f in openGym-*.apk; do sha256sum "$f" > "$f.sha256"; cat "$f.sha256"; done)
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openGym-apk-${{ github.ref_name }}
+          path: out/
+          retention-days: 30
+    outputs:
+      signed: ${{ steps.sign.outputs.signed }}
+
+  # A tag also becomes a GitHub release. Its own job, so only this one holds write access, and
+  # only the gh CLI with the job's own token touches the repository: no third-party action.
+  release:
+    needs: apk
+    if: github.ref_type == 'tag' && needs.apk.outputs.signed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: openGym-apk-${{ github.ref_name }}
+          path: out
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" out/openGym-*.apk out/openGym-*.apk.sha256 --clobber

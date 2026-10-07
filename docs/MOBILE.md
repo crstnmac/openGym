@@ -204,6 +204,13 @@ phone; the x86 builds of the barcode scanner's library would add about 12 MB for
 alone. A debug build (`./gradlew assembleDebug`) keeps all four, so it still runs on an x86_64
 emulator.
 
+A fork can have GitHub build it instead: [`android-apk.yml`](../.github/workflows/android-apk.yml)
+runs the same steps on every push to `main` that touches `frontend/`, on a `v*` tag (which also
+publishes a GitHub release with the APK and its checksum) and by hand from the Actions tab. It
+signs with your own key, read from three repository secrets — `ANDROID_KEYSTORE_B64` (the
+keystore, base64 on one line), `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS`. Without them
+it uploads an unsigned APK, which cannot be installed, and a tag fails.
+
 To build and sign your own:
 
 ```sh
