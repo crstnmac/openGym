@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore, DEF, hasData } from '../store/useStore.js'
 import { workoutControls } from '../lib/workout-controls.js'
 import { speedUnitOf } from '../lib/speed.js'
+import { SITES, lengthUnitOf, trackedSites } from '../lib/measurements.js'
 import { copyText } from '../lib/clipboard.js'
 import { useUI } from '../store/useUI.js'
 import { ACCENTS, ACCENT_NAMES, todayISO, localTZ, weekStartOf, MONDAY, SUNDAY, fmtPlate } from '../lib/format.js'
@@ -25,11 +26,12 @@ import { setRestAccent } from '../lib/rest-alert.js'
 import { checkForUpdate, downloadAndInstall } from '../lib/update.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import { starterPlanSheet, confirmSheet, importFromApp, importFromHevy, equipmentProfileSheet, plateInventorySheet, menuSheet } from '../sheets.jsx'
+import { measureName } from '../lib/measure-names.js'
 import Icon from '../components/Icon.jsx'
 import { ServerSyncSection, KeptChangesRows, leaveServer, connectServer, passkeySignIn } from '../components/ServerSync.jsx'
 import { passwordOn, PasswordRow, openPasswordSignIn, openPasswordRegister } from '../components/PasswordAuth.jsx'
 import { usePasskeys, PasskeysRow, DeviceLinkRow } from '../components/Passkeys.jsx'
-import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
+import { Section, Row, SelectRow, Switch, Segmented, Button, TextField, MultiSelectRow } from '../components/ui.jsx'
 
 export default function Settings() {
   const nav = useNavigate()
@@ -369,6 +371,24 @@ export default function Settings() {
           options={[{ value: 'kmh', label: 'km/h' }, { value: 'mph', label: 'mph' }]}
           value={speedUnitOf(S)} onChange={v => update(s => { s.speedUnit = v })} />
       </Row>
+      {/* Body measurements (lib/measurements.js). Like speed, nothing converts: lengths stay stored
+          in cm and only what is shown and typed follows the unit; until chosen it follows the
+          weight unit. The sites decide what the log sheet asks for and the Stats card offers —
+          readings already logged for an unticked site are kept, only hidden. */}
+      <Row icon="scale" iconTint="var(--purple)" title={t('Length unit')} subtitle={t('Used for body measurements.')}>
+        <Segmented className="seg-inline"
+          options={[{ value: 'cm', label: 'cm' }, { value: 'in', label: 'in' }]}
+          value={lengthUnitOf(S)} onChange={v => update(s => { s.lengthUnit = v })} />
+      </Row>
+      <MultiSelectRow icon="scale" iconTint="var(--purple)" title={t('Measurements to track')} sheetTitle={t('Measurements to track')}
+        values={trackedSites(S)} noneLabel={t('All')}
+        options={SITES.map(k => ({ value: k, label: measureName(k) }))}
+        onToggle={k => update(s => {
+          const cur = trackedSites(s)
+          const next = cur.includes(k) ? cur.filter(x => x !== k) : SITES.filter(x => x === k || cur.includes(x))
+          // The last site cannot be unticked: nothing tracked would leave a log sheet with no rows.
+          s.measureSites = next.length ? next : cur
+        })} />
       {/* Display only: one decimal reads fine for plate-loadable numbers, two for anyone whose
           per-side figure lands on .25 or .75, or who loads microplates (issue #139). Nothing is
           stored or rounded differently — lib/format.js fmtNum just prints what is already there. */}

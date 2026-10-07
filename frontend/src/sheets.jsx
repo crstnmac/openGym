@@ -49,6 +49,8 @@ import { moveWorkout, sameWorkout, startTimeOf, durationMinOf, setWorkoutDuratio
 import { editCompletedSession, editLeftEmpty, editedRecord, editChangesNothing } from './lib/session-edit.js'
 import { stampWorkout } from './lib/sync-merge.js'
 import { weeklyWeights } from './lib/bodyweight.js'
+import { measureName } from './lib/measure-names.js'
+import { SITES, lengthUnitOf, trackedSites, toDisplay, fromDisplay, validLength, recordMeasures, removeMeasure, latestOf } from './lib/measurements.js'
 import { workoutText } from './lib/workout-text.js'
 import { copyText } from './lib/clipboard.js'
 
@@ -339,6 +341,79 @@ function WeighIns() {
   </>
 }
 export const weighInsSheet = () => ui().openSheet(close => <WeighIns close={close} />)
+
+/* ============================ body measurements ============================ */
+// Tape measurements next to body weight (lib/measurements.js): one sheet to log whichever sites
+// were measured today, one to read them all back. Stored in cm; shown in the length unit chosen
+// in Settings → Units.
+function MeasureSheet({ close }) {
+  const st = useStore(s => s.S)
+  const lu = lengthUnitOf(st)
+  const sites = trackedSites(st)
+  const today = (st.measures || []).find(m => m.d === todayISO())
+  // What is typed, in the shown unit, by site. Today's own readings come back to be corrected.
+  const [vals, setVals] = useState(() => Object.fromEntries(sites.filter(k => today?.v?.[k] != null).map(k => [k, toDisplay(today.v[k], lu)])))
+  const save = () => {
+    const typed = Object.entries(vals).filter(([k, n]) => sites.includes(k) && n != null && n !== '' && Number(n) !== 0)
+    if (typed.some(([, n]) => !validLength(n, lu))) { toast(t('Enter a valid measurement')); return }
+    const cm = Object.fromEntries(typed.map(([k, n]) => [k, fromDisplay(Number(n), lu)]))
+    let wrote = false
+    update(s => { wrote = recordMeasures(s, cm) })
+    if (!wrote) { toast(t('Enter at least one measurement')); return }
+    close()
+    toast(t('Measurements saved'))
+  }
+  return <>
+    <h3>{t('Log measurements')}</h3>
+    <div className="muted small">{t('Today') + ', ' + fmtDate(todayISO(), true)} · {t('Fill in what you measured — leave the rest empty.')}</div>
+    <div className="list" style={{ gap: 0, marginTop: 10 }}>
+      {sites.map(k => {
+        const last = latestOf(st.measures, k)
+        return <label key={k} className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)', gap: 12 }}>
+          <span>{measureName(k)}{last && <span className="small muted" style={{ display: 'block' }}>{t('Last: {0}', fmtNum(toDisplay(last.cm, lu)) + ' ' + lu)}</span>}</span>
+          <span className="row" style={{ gap: 6 }}>
+            <NumberField decimal nullable value={vals[k] ?? ''} placeholder="–" aria-label={measureName(k) + ' (' + lu + ')'}
+              className="field" onChange={n => setVals(v => ({ ...v, [k]: n }))} style={{ width: '5.5em', textAlign: 'right', padding: '8px 10px', minHeight: 40 }} />
+            <span className="muted small">{lu}</span>
+          </span>
+        </label>
+      })}
+    </div>
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+  </>
+}
+export const measureSheet = () => ui().openSheet(close => <MeasureSheet close={close} />)
+
+// Every day's readings, newest first, each site with its own delete (asked first, as the
+// weigh-in list does: it is months of history).
+function Measures() {
+  const st = useStore(s => s.S)
+  const lu = lengthUnitOf(st)
+  const days = [...(st.measures || [])].reverse()
+  const del = (d, k) => confirmSheet({
+    title: t('Delete measurement?'), message: `${fmtDate(d, true)} · ${measureName(k)}`,
+    confirmText: t('Delete'), danger: true, onConfirm: () => update(s => { removeMeasure(s, d, k) }),
+  })
+  if (!days.length) return <>
+    <h3>{t('Measurements')}</h3>
+    <div className="empty"><div className="ico"><Icon name="scale" /></div>{t('No measurements yet — log your waist, hips and more to follow them over time.')}</div>
+  </>
+  return <>
+    <h3>{t('Measurements')}</h3>
+    {days.map(m => <div key={m.d} data-day={m.d}>
+      <div className="small" style={{ fontWeight: 600, margin: '16px 2px 4px' }}>{fmtDate(m.d, true)}</div>
+      <div className="list" style={{ gap: 0 }}>
+        {SITES.filter(k => m.v?.[k] != null).map(k => <div key={k} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <span className="small muted">{measureName(k)}</span>
+          <span className="row" style={{ gap: 12 }}><b>{fmtNum(toDisplay(m.v[k], lu))} {lu}</b>
+            <button className="iconbtn" style={{ width: 32, height: 30, borderRadius: 8, fontSize: 15, color: 'var(--red)' }} onClick={() => del(m.d, k)} aria-label={t('Delete measurement')}><Icon name="trash" /></button></span>
+        </div>)}
+      </div>
+    </div>)}
+  </>
+}
+export const measuresSheet = () => ui().openSheet(close => <Measures close={close} />)
 
 /* ============================ import from another app ============================ */
 // Shows what a parsed export would actually do before anything is written. An import is

@@ -22,6 +22,7 @@
  *   - routines: union by id in the newer copy's order; of an id that both have, the version
  *     edited last by its own `_ts` (stampRoutines), the newer copy's on a tie
  *   - bodyweight: union by day, the later-edited (`t`) entry of a day that both have
+ *   - measures (tape measurements, lib/measurements.js): the same, by day
  *   - favEx: ordered set union, the newer copy first
  *   - exWeights: union by exercise, the better `w` for that exercise — larger for an ordinary
  *     lift, smaller on an assistance machine (a PR logged on the other device must not be
@@ -214,7 +215,7 @@ const workoutTime = w => Number(w?._ts) || Number(w?.end) || Number(w?.start) ||
 // What a reset records of the entries it wiped (resetIds), by field: how an entry is named.
 const bodyweightKey = e => `${e?.d}|${e?.t ?? ''}`
 const RESET_LISTS = {
-  workouts: workoutKey, routines: x => x?.id, customEx: x => x?.id, bodyweight: bodyweightKey,
+  workouts: workoutKey, routines: x => x?.id, customEx: x => x?.id, bodyweight: bodyweightKey, measures: bodyweightKey,
   gymCards: x => x?.id, equipProfiles: x => x?.id, favEx: x => x,
 }
 const RESET_MAPS = ['exNotes', 'barWeights', 'balanceOverrides', 'loadKind', 'plates']
@@ -270,6 +271,7 @@ export function sinceReset(S, at, ids) {
     out.routines = list(S.routines).filter(r => r && after(r._ts))
     out.customEx = list(S.customEx).filter(c => c && after(c._ts))
     out.bodyweight = list(S.bodyweight).filter(e => e && after(e.t))
+    out.measures = list(S.measures).filter(e => e && after(e.t))
     // No time of their own: taken for what they were before the reset, which cleared them.
     out.equipProfiles = []
     out.gymCards = []
@@ -386,6 +388,7 @@ export function mergeStates(a0, b0, { prefer } = {}) {
     })
   }
   out.bodyweight = mergeBodyweight(n.bodyweight, o.bodyweight).map(clone)
+  if (list(n.measures).length || list(o.measures).length) out.measures = mergeBodyweight(n.measures, o.measures).map(clone)
   if (list(n.favEx).length || list(o.favEx).length) out.favEx = [...new Set([...list(n.favEx), ...list(o.favEx)])]
   out.exWeights = clone(mergeExWeights(n.exWeights, o.exWeights))
   for (const [id, sources] of editedBy) {

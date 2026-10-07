@@ -74,7 +74,7 @@ const gainedWorkoutMedia = (prev, next) => {
 export const DEF = {
   unit: 'kg', restSec: 90, restPauseSec: 15, sound: true, soundOnSilent: false, timerFlash: false, timedSetOvertime: false, keepAwake: true, lang: 'en',
   theme: 'dark', accent: 'lime', body: 'male', targetW: null,
-  bodyweight: [], routines: [], week: {}, dayPlan: {},
+  bodyweight: [], measures: [], routines: [], week: {}, dayPlan: {},
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // Stats activity heatmap metric. Profiles without this key continue to open on time.
   heatmapMetric: 'time',
@@ -114,6 +114,9 @@ export const DEF = {
   // Cardio speed shown in 'kmh' or 'mph'. null follows the weight unit (lb reads mph). Display
   // only as well: every speed is stored in km/h (lib/speed.js).
   speedUnit: null,
+  // Body measurements (lib/measurements.js): the length unit they are shown in — null follows the
+  // weight unit (lb reads inches) — and the sites tracked, null for all. Lengths are stored in cm.
+  lengthUnit: null, measureSites: null,
   // Per-exercise bar weight overrides, keyed by exercise id, in the profile unit (see
   // lib/bar.js). Personal equipment, so it syncs with the account but never travels in a
   // shared plan. Logged weights stay the total — this only feeds the plate math.
@@ -220,7 +223,7 @@ function loadState() {
 // weigh-ins and custom exercises. A custom exercise is all a new guest may have made — with its
 // photo or video, which the server counts as unreferenced until the state that names it lands —
 // so a profile created from such a copy takes it at once, like one holding a workout.
-const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length || (st.customEx || []).length)
+const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length || (st.measures || []).length || (st.customEx || []).length)
 
 // Decide whether a pulled account state may replace the local saved state. A local active workout
 // is deliberately carried forward: the server stores completed/saved state, while the in-progress
@@ -867,7 +870,7 @@ export const useStore = create((set, get) => {
   // A copy's workouts, weigh-ins and custom exercises split by the names a sign-in recorded when it
   // began (`pre`, see setUser): `before` holds what was there then, `later` — null when nothing
   // is — what was logged since, with the custom exercises its workouts use, in this copy's unit.
-  const ADOPT_FIELDS = ['workouts', 'bodyweight', 'customEx']
+  const ADOPT_FIELDS = ['workouts', 'bodyweight', 'measures', 'customEx']
   const splitByPre = (S, pre) => {
     const before = { ...S }
     const later = { _ts: S._ts, unit: S.unit, ...(S.unitSet ? { unitSet: S.unitSet } : {}) }
