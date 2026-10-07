@@ -414,6 +414,10 @@ export default function Settings() {
         subtitle={t('Show the body weight card on Home.')}>
         <Switch checked={S.showWeightCard !== false} onChange={v => update(s => { s.showWeightCard = v })} />
       </Row>
+      <Row icon="scale" iconTint="var(--purple)" title={t('Measurements')}
+        subtitle={t('Show the body measurements card on Home and Stats.')}>
+        <Switch checked={S.showMeasureCard !== false} onChange={v => update(s => { s.showMeasureCard = v })} />
+      </Row>
     </Section>
 
     {/* ---------- during a workout ---------- */}

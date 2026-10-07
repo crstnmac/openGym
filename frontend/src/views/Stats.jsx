@@ -7,8 +7,7 @@ import { fmtNum, fmtDate, fmtVol, todayISO, weekStartOf, exerciseNameText } from
 import { speedUnitOf, speedLabel, toSpeed } from '../lib/speed.js'
 import { t, exerciseNameFor, exerciseNameClass, getLang } from '../lib/i18n.js'
 import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, exerciseHistorySheet, WorkoutRow, bwDeltaColor, weighInsSheet, measureSheet, measuresSheet } from '../sheets.jsx'
-import { measureName } from '../lib/measure-names.js'
-import { lengthUnitOf, trackedSites, toDisplay, siteSeries, latestOf, waistHipRatio } from '../lib/measurements.js'
+import MeasureCard from '../components/MeasureCard.jsx'
 import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
@@ -288,44 +287,6 @@ function EffortCard({ S }) {
   </div>
 }
 
-// Tape measurements (lib/measurements.js): the card follows one site at a time, newest reading
-// and its change on top, the chart below. Lengths are stored in cm and shown in the profile's
-// length unit. A site with a fall is not coloured good or bad — for a waist it is, for a chest
-// it may not be, and the app does not know which the person is after.
-function MeasureCard({ S }) {
-  const lu = lengthUnitOf(S)
-  const sites = trackedSites(S).filter(k => siteSeries(S.measures, k).length)
-  const [pick, setPick] = useState(null)
-  const site = sites.includes(pick) ? pick : sites.includes('waist') ? 'waist' : sites[0]
-  const pts = site ? siteSeries(S.measures, site).map(p => ({ t: p.t, y: toDisplay(p.cm, lu), d: p.d })) : []
-  const last = site ? latestOf(S.measures, site) : null
-  const ratio = waistHipRatio(S.measures)
-  return <div className="card">
-    <div className="row between bw-head" style={{ marginBottom: 8 }}>
-      <h2 style={{ margin: 0 }}>{t('Measurements')}</h2>
-      <div className="row" style={{ gap: 8 }}>
-        <Button size="sm" icon="plus" onClick={() => measureSheet()}>{t('Log')}</Button>
-      </div>
-    </div>
-    {site ? <>
-      <div className="sect-b" style={{ marginBottom: 10 }}>
-        <SelectRow title={t('Site')} sheetTitle={t('Site')} value={site} onChange={setPick}
-          options={sites.map(k => ({ value: k, label: measureName(k) }))} />
-      </div>
-      <div className="row between" style={{ alignItems: 'baseline' }}>
-        <b style={{ fontSize: '1.4rem' }}>{fmtNum(toDisplay(last.cm, lu))} {lu}</b>
-        {last.delta != null && fmtNum(Math.abs(toDisplay(Math.abs(last.delta), lu))) !== fmtNum(0) && <span className="small muted row" style={{ gap: 2 }}>
-          <Icon name={last.delta > 0 ? 'arrowUp' : 'arrowDown'} style={{ fontSize: 12 }} />{fmtNum(toDisplay(Math.abs(last.delta), lu))} {lu}</span>}
-      </div>
-      <div className="chart"><LineChart points={pts} h={140} unit={lu} /></div>
-      {ratio != null && <div className="small muted" style={{ marginTop: 4 }}>{t('Waist-to-hip ratio {0}', ratio.toFixed(2))}</div>}
-      <div className="row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
-        <Button size="sm" variant="ghost" trailingIcon="chevronRight" onClick={measuresSheet}>{t('All measurements')}</Button>
-      </div>
-    </> : <div className="empty"><div className="ico"><Icon name="scale" /></div>{t('No measurements yet — log your waist, hips and more to follow them over time.')}</div>}
-  </div>
-}
-
 // Stats = the analytics hub: all charts, progress and history live here.
 export default function Stats() {
   const nav = useNavigate()
@@ -537,7 +498,7 @@ export default function Stats() {
         </div>}
       </div>
 
-      <MeasureCard S={S} />
+      {S.showMeasureCard !== false && <MeasureCard S={S} onLog={() => measureSheet()} onAll={() => measuresSheet()} />}
 
       <div className="card">
         <h2>{t('Exercise progress')}</h2>
