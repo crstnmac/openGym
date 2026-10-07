@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.0 — 2026-10-07
+
+Body measurements. Log waist, hips, chest and six other tape sites next to body weight, with a
+Stats card, a Home card and a history you can delete from. They are kept in centimetres and shown
+in cm or inches (Settings → Length unit), you choose which sites to track, and they sync between
+devices by day like weigh-ins. The Coach reads them too, under the body-weight consent category —
+now "Body weight and measurements", so the consent is asked again. A falling waist on a flat scale
+is read as progress, not a stall.
+
 ## v1.3.9 — 2026-09-28
 
 The milestone was "edit your history", and it is in: fix a saved workout after the fact, move it to
