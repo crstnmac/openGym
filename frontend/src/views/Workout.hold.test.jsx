@@ -6,7 +6,7 @@ import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import Workout from './Workout.jsx'
+import Workout, { removeActiveExercise } from './Workout.jsx'
 import { DEF, useStore } from '../store/useStore.js'
 import { useUI, restoreWork, restoreRest, WORK_KEY, REST_KEY } from '../store/useUI.js'
 import { beep, chime, vibrate, alertBuzz, hush, holdSession } from '../lib/sound.js'
@@ -171,6 +171,77 @@ describe('a move during a rest', () => {
     expect(useUI.getState().timer).toMatchObject({ kind: 'set', forIdx: 1 })
     expect(hush).not.toHaveBeenCalled()
     expect(holdSession).not.toHaveBeenCalled()
+  })
+})
+
+// Owner's call: the chain stops when you go to another exercise during the rest between two holds.
+describe('a timed exercise that runs itself, and a move during its rest', () => {
+  it('the next hold waits for a tap, and the screen stays where you went', () => {
+    const bench = { id: '0025', target: { mode: 'reps', sets: 1, reps: 5, weight: 60 }, sets: [{ w: 60, r: 5, done: false }] }
+    renderWorkout([plank(), bench])
+    startHold()
+    act(() => { vi.advanceTimersByTime(11_000) })               // held to the end: its rest starts
+    expect(useUI.getState().timer).toMatchObject({ kind: 'set', hand: { chain: { i: 1 } } })
+    act(() => useStore.getState().update(s => { s.active.cur = 1 }))
+    act(() => { vi.advanceTimersByTime(useUI.getState().timer.total * 1000) })
+    expect(useUI.getState().work).toBeNull()
+    expect(useStore.getState().S.active.cur).toBe(1)
+    expect(doneOf()).toEqual([true, false])
+  })
+
+  // Moving or removing exercises shifts the indexes under the marker without anyone going
+  // anywhere: the chain carries on.
+  const bench = () => ({ id: '0025', target: { mode: 'reps', sets: 1, reps: 5, weight: 60 }, sets: [{ w: 60, r: 5, done: false }] })
+  const plank3 = () => ({ ...plank(), sets: [0, 1, 2].map(() => ({ sec: 10, w: 0, done: false })) })
+  const restRunsOut = () => act(() => { vi.advanceTimersByTime(useUI.getState().timer.left * 1000) })
+
+  it('moving the timed exercise itself up during its rest is not going anywhere', () => {
+    renderWorkout([bench(), plank3()], () => { useStore.getState().update(s => { s.wc = { exerciseButtons: true }; s.active.cur = 1 }) })
+    startHold()
+    act(() => { vi.advanceTimersByTime(11_000) })
+    act(() => container.querySelector('button[aria-label="Move up"]').click())
+    expect(useStore.getState().S.active.entries.map(e => e.id)).toEqual(['1001', '0025'])
+    restRunsOut()
+    expect(useUI.getState().work).toMatchObject({ owner: { idx: 0, i: 1, id: '1001' } })
+  })
+
+  it('nor, in the List layout, moving the exercise the marker is on past it', () => {
+    renderWorkout([bench(), plank3()], () => { useStore.getState().update(s => { s.wc = { exerciseButtons: true }; s.active.workoutView = 'list' }) })
+    startHold()                                                 // the plank's, with the marker on the bench
+    act(() => { vi.advanceTimersByTime(11_000) })
+    act(() => container.querySelector('button[aria-label="Move down"]').click())   // the bench, below the plank
+    expect(useStore.getState().S.active.entries.map(e => e.id)).toEqual(['1001', '0025'])
+    expect(useStore.getState().S.active.cur).toBe(1)
+    restRunsOut()
+    // Exactly as with no move: the rest's end takes the marker to the plank, and its next hold runs.
+    expect(useStore.getState().S.active.cur).toBe(0)
+    expect(useUI.getState().work).toMatchObject({ owner: { idx: 0, i: 1, id: '1001' } })
+  })
+
+  it('nor removing an exercise above the marker', () => {
+    const row = { ...bench(), id: '0652' }
+    renderWorkout([row, bench(), plank3()], () => { useStore.getState().update(s => { s.active.workoutView = 'list'; s.active.cur = 1 }) })
+    startHold()
+    act(() => { vi.advanceTimersByTime(11_000) })
+    act(() => removeActiveExercise(0))
+    expect(useStore.getState().S.active.cur).toBe(0)
+    restRunsOut()
+    expect(useStore.getState().S.active.cur).toBe(1)
+    expect(useUI.getState().work).toMatchObject({ owner: { idx: 1, i: 1, id: '1001' } })
+  })
+
+  // Removing the exercise the marker stood on is different: the marker lands on the one after it,
+  // and that is another exercise. Nothing chains and nothing moves.
+  it('removing the exercise the marker stood on leaves it on another one: the chain stops there', () => {
+    const row = { ...bench(), id: '0652' }
+    renderWorkout([row, bench(), plank3()], () => { useStore.getState().update(s => { s.active.workoutView = 'list'; s.active.cur = 0 }) })
+    startHold()
+    act(() => { vi.advanceTimersByTime(11_000) })
+    act(() => removeActiveExercise(0))
+    expect(useStore.getState().S.active.cur).toBe(0)
+    restRunsOut()
+    expect(useStore.getState().S.active.cur).toBe(0)
+    expect(useUI.getState().work).toBeNull()
   })
 })
 

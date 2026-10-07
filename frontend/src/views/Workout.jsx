@@ -4,7 +4,7 @@ import SwipeRow from '../components/SwipeRow.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { workoutControls } from '../lib/workout-controls.js'
-import { useUI } from '../store/useUI.js'
+import { useUI, remapHand } from '../store/useUI.js'
 import { exOr, betterWeight } from '../lib/exercises.js'
 import { usesBar } from '../lib/bar.js'
 import { loadKindFor, baseWeightFor, inventoryFor, rowLoad, sameLoad, plateDelta, dropGrid } from '../lib/plates.js'
@@ -842,11 +842,18 @@ export function copyActiveSet(idx, i) {
 let latest = {}
 
 // A timed exercise runs itself once started: hold → rest → next hold, until its sets are done.
-// The rest carries where it leads (timer.hand.chain: entry id, row, row count), and useUI hands
-// it back here when the rest is over with its owner index as it is then. The workout may have
-// moved on meanwhile: the exercise must still be the same one, still timed, still alone in its
-// unit, with the same rows, that row still undone and no hold running.
-const chainHold = (chain, forIdx) => {
+// The rest carries where it leads (timer.hand.chain: entry id, row, row count, and the marker as
+// the rest started), and useUI hands it back here when the rest is over with its owner index as it
+// is then. The workout may have moved on meanwhile: the exercise must still be the same one, still
+// timed, still alone in its unit, with the same rows, that row still undone and no hold running.
+// And you must not have gone to another exercise: that takes this one off autopilot (owner's
+// call), so the next hold waits for a tap and the screen stays where you went. `stayed` says so,
+// read by restHandOver before the rest's own move: the marker is where it was when the rest began
+// (chain.cur, kept on the same exercise when the list changes shape: useUI.remapHand), or on this
+// exercise itself. In the List layout a hold runs wherever you tap play, not only where the
+// marker is.
+const chainHold = (chain, forIdx, stayed) => {
+  if (!stayed) return
   const S2 = useStore.getState().S
   const e = forIdx != null ? S2.active?.entries[forIdx] : null
   if (!chain || !e || e.id !== chain.id || modeOf({ ...(e.target || {}), id: e.id }) !== 'time') return
@@ -878,6 +885,8 @@ const chainHold = (chain, forIdx) => {
 export function restHandOver(tm, seenLive) {
   const hand = tm.hand || {}
   const active = useStore.getState().S.active
+  // Where the marker is as the rest ends, read before the move below.
+  const stayed = !!active && (active.cur === hand.chain?.cur || active.cur === tm.forIdx)
   if ('from' in hand && active && tm.forIdx != null && active.cur === hand.from) {
     const units = supersetUnits(active.entries)
     const to = tm.kind === 'block'
@@ -889,7 +898,7 @@ export function restHandOver(tm, seenLive) {
   }
   // The next hold is the half that must not run unwatched: a rest that expired in your pocket
   // would otherwise log a hold you never did. The move above is safe either way.
-  if (seenLive) chainHold(hand.chain, tm.forIdx)
+  if (seenLive) chainHold(hand.chain, tm.forIdx, stayed)
 }
 useUI.getState().bindRest?.(restHandOver)
 
@@ -1231,7 +1240,8 @@ function ActiveWorkout() {
       const rest = useUI.getState().timer
       if (rest && rest.forIdx != null) {
         const forIdx = moved.indices.indexOf(rest.forIdx)
-        if (forIdx >= 0) useUI.setState({ timer: { ...rest, forIdx } })
+        // So does where its hand-over remembers the marker (useUI.remapHand): a move is not a visit.
+        if (forIdx >= 0) useUI.setState({ timer: { ...rest, forIdx, ...(rest.hand ? { hand: remapHand(rest.hand, i => moved.indices.indexOf(i)) } : {}) } })
       }
     }, true)
   }
@@ -1706,7 +1716,9 @@ function ActiveWorkout() {
       // Also on a re-check, so an unticked-and-redone hold keeps the exercise running itself.
       const alone = !freshUnit || freshUnit.length <= 1
       const rows = fresh.entries[idx].sets
-      const chainTo = at => (fromHold && alone && at >= 0 ? { chain: { id: fresh.entries[idx].id, i: at, n: rows.length } } : undefined)
+      // `cur`: where the marker stands as the rest starts, so a move of yours during it stops the
+      // chain (chainHold). Read from the store, like the hand-over's `from`.
+      const chainTo = at => (fromHold && alone && at >= 0 ? { chain: { id: fresh.entries[idx].id, i: at, n: rows.length, cur: useStore.getState().S.active?.cur } } : undefined)
       // Every rest a completed set starts hands the screen over when it is over (restHandOver):
       // `from` is where the marker stands as the rest starts — read from the store, since a
       // round's rest starts after the marker has moved on to the round's next member (below).

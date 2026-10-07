@@ -465,7 +465,7 @@ describe('Workout set completion flow', () => {
     await act(async () => { holdDone(30) })                      // the countdown ran out
     expect(mocks.S.active.entries[0].sets[0].done).toBe(true)
     expect(mocks.startRest).toHaveBeenCalledTimes(1)
-    expect(mocks.startRest).toHaveBeenLastCalledWith(90, 0, { kind: 'set', phase: null, forSet: 0, hand: { from: 0, chain: { id: 'plank', i: 1, n: 3 } } })
+    expect(mocks.startRest).toHaveBeenLastCalledWith(90, 0, { kind: 'set', phase: null, forSet: 0, hand: { from: 0, chain: { id: 'plank', i: 1, n: 3, cur: 0 } } })
     await restRunsOut(0)
     expect(mocks.startWork).toHaveBeenCalledTimes(2)
     expect(mocks.startWork.mock.calls[1][3]).toEqual({ idx: 0, i: 1, id: 'plank' })
@@ -520,6 +520,55 @@ describe('Workout set completion flow', () => {
     expect(mocks.startWork).toHaveBeenCalledTimes(1)
   })
 
+  // Owner's call: going to another exercise during the rest between two holds takes the exercise
+  // off autopilot. The next hold waits for a tap, and the screen stays where you went.
+  it('a move during the rest stops the chain: the next hold waits for a tap, and the screen stays where you went', async () => {
+    await mount([hold('plank', [false, false, false]), exercise('next', [false])])
+    await pressStart(0)
+    await act(async () => { mocks.startWork.mock.calls[0][2](30) })
+    mocks.S.active.cur = 1                                       // you swiped to the next exercise mid-rest
+    await restRunsOut(0)
+    expect(mocks.startWork).toHaveBeenCalledTimes(1)
+    expect(mocks.S.active.cur).toBe(1)
+  })
+
+  it('so does a move during the switch-sides pause of a per-side hold', async () => {
+    const sides = hold('side-plank', [], { sets: [{ sec: 30, w: 0, side: 'L', done: false }, { sec: 30, w: 0, side: 'R', done: false }] })
+    await mount([sides, exercise('next', [false])])
+    await pressStart(0)
+    await act(async () => { mocks.startWork.mock.calls[0][2](30) })
+    expect(mocks.startRest.mock.calls[0][2]).toMatchObject({ kind: 'switch', hand: { chain: { i: 1 } } })
+    mocks.S.active.cur = 1
+    await restRunsOut(0)
+    expect(mocks.startWork).toHaveBeenCalledTimes(1)
+    expect(mocks.S.active.cur).toBe(1)
+  })
+
+  // Where the marker stood is read before the rest's own move: in the List layout a hold can run
+  // on an exercise the marker is not on, and the end of its rest takes the marker there.
+  it('a hold run away from the marker in the List layout still chains, after the rest moves the marker to it', async () => {
+    await mount([exercise('bench', [false]), hold('plank', [false, false, false])], 0, { workoutView: 'list' })
+    await pressStart(0)
+    expect(mocks.startWork.mock.calls[0][3]).toEqual({ idx: 1, i: 0, id: 'plank' })
+    await act(async () => { mocks.startWork.mock.calls[0][2](30) })
+    await restRunsOut(0)
+    expect(mocks.S.active.cur).toBe(1)
+    expect(mocks.startWork).toHaveBeenCalledTimes(2)
+    expect(mocks.startWork.mock.calls[1][3]).toEqual({ idx: 1, i: 1, id: 'plank' })
+  })
+
+  // Going TO the timed exercise is not going to another one: in the List layout the marker can be
+  // set onto it during its rest.
+  it('a marker set onto the timed exercise itself during its rest keeps it running itself', async () => {
+    await mount([exercise('bench', [false]), hold('plank', [false, false, false])], 0, { workoutView: 'list' })
+    await pressStart(0)
+    await act(async () => { mocks.startWork.mock.calls[0][2](30) })
+    mocks.S.active.cur = 1
+    await restRunsOut(0)
+    expect(mocks.startWork).toHaveBeenCalledTimes(2)
+    expect(mocks.startWork.mock.calls[1][3]).toEqual({ idx: 1, i: 1, id: 'plank' })
+  })
+
   it('the hand-over follows the rest\'s owner when an exercise is added above it mid-rest', async () => {
     await mount([hold('plank', [false, false, false])], 0, { workoutView: 'list' })
     await pressStart(0)
@@ -537,7 +586,7 @@ describe('Workout set completion flow', () => {
     await mount([hold('plank', [false, false, false])])
     await pressStart(0)
     await act(async () => { mocks.startWork.mock.calls[0][2](30) })
-    expect(handOf(0).chain).toEqual({ id: 'plank', i: 1, n: 3 })
+    expect(handOf(0).chain).toEqual({ id: 'plank', i: 1, n: 3, cur: 0 })
     await rerender()
     await toggleSet(0)                                           // untick to redo it
     expect(mocks.S.active.entries[0].sets[0].done).toBe(false)
@@ -545,7 +594,7 @@ describe('Workout set completion flow', () => {
     await pressStart(0)
     await act(async () => { mocks.startWork.mock.calls[1][2](30) })
     expect(mocks.startRest).toHaveBeenCalledTimes(2)
-    expect(handOf(1).chain).toEqual({ id: 'plank', i: 1, n: 3 })
+    expect(handOf(1).chain).toEqual({ id: 'plank', i: 1, n: 3, cur: 0 })
   })
 
   it('a chained hold judges the finish prompt on the workout as it is, not as it was when play was tapped', async () => {
@@ -567,7 +616,7 @@ describe('Workout set completion flow', () => {
     mocks.S.restSec = 120                                        // changed in Settings while the hold ran
     await rerender()
     await act(async () => { mocks.startWork.mock.calls[0][2](30) })
-    expect(mocks.startRest).toHaveBeenLastCalledWith(120, 0, { kind: 'set', phase: null, forSet: 0, hand: { from: 0, chain: { id: 'plank', i: 1, n: 2 } } })
+    expect(mocks.startRest).toHaveBeenLastCalledWith(120, 0, { kind: 'set', phase: null, forSet: 0, hand: { from: 0, chain: { id: 'plank', i: 1, n: 2, cur: 0 } } })
   })
 
   it('a hold whose row now belongs to another exercise writes nothing', async () => {

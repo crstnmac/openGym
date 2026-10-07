@@ -270,6 +270,17 @@ const runRest = (set, get) => {
   document.addEventListener('visibilitychange', timerTick)
 }
 
+// Where a rest's hand-over remembers the marker — hand.from (Workout.jsx restHandOver) and
+// hand.chain.cur (chainHold) — kept on the same exercises when the list changes shape, as forIdx
+// is (shiftRestOwner, Workout.jsx moveUnitAt): the list shifting under the marker is not you going
+// anywhere. `to` maps an old index to its new one.
+export const remapHand = (hand, to) => {
+  const next = { ...hand }
+  if (next.from != null) next.from = to(next.from)
+  if (next.chain?.cur != null) next.chain = { ...next.chain, cur: to(next.chain.cur) }
+  return next
+}
+
 export const useUI = create((set, get) => ({
   sheets: [],          // { id, render:(close)=>JSX, kind:'sheet'|'center', locked }
   toastMsg: '',
@@ -285,8 +296,8 @@ export const useUI = create((set, get) => ({
                        //   'work', on an exercise that has warm-up rows (supersetFlow.restSetPhase)
                        // hand: what the rest hands over to when it is over (see handOver above) —
                        //   { from?, chain? }: `from` the marker when the rest started, so the screen
-                       //   can move on (Workout.jsx restHandOver); `chain` { id, i, n } the hold of
-                       //   row i of entry id, if it still has n rows
+                       //   can move on (Workout.jsx restHandOver); `chain` { id, i, n, cur } the hold
+                       //   of row i of entry id, if it still has n rows and the marker is still at cur
                        // forIdx: index of the active entry whose set started the rest (undefined when unknown)
                        // forSet: index of that set in the entry's rows, so removing the set stops its rest
                        // paused: held at `left`; `endsAt` means nothing until resumeRest sets it again
@@ -434,6 +445,9 @@ export const useUI = create((set, get) => ({
   shiftRestOwner(at, delta) {
     const tm = get().timer
     if (tm && tm.forIdx >= at) set({ timer: { ...tm, forIdx: tm.forIdx + delta } })
+    // One that pointed at an exercise now removed points nowhere: what took its place is another one.
+    const tc = get().timer
+    if (tc?.hand) set({ timer: { ...tc, hand: remapHand(tc.hand, i => (i >= at ? i + delta : i >= at + delta ? -1 : i)) } })
     const wk = get().work
     if (wk?.owner && wk.owner.idx >= at) set({ work: { ...wk, owner: { ...wk.owner, idx: wk.owner.idx + delta } } })
   },
