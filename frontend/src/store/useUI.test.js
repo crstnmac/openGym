@@ -777,8 +777,12 @@ describe('a timer that runs while the page is hidden', () => {
     expect(holdSession.mock.calls).toEqual([[false]])
   })
 
-  it('a hidden hold finishes on the first tick back, at its full length', () => {
+  // It still finishes on the first tick back, at its full length, and now also says when it
+  // ended: the rest it earned has been counting since then (owner's call; Workout.jsx passes it to
+  // startRest as `since`, store/useUI.hidden-hold.test.js). A hold that ends on screen says nothing.
+  it('a hidden hold finishes on the first tick back, at its full length, saying when it really ended', () => {
     const done = vi.fn()
+    const endsAt = Date.now() + 2000
     useUI.getState().startWork(2, 'Plank', done)
     goHidden()
     vi.advanceTimersByTime(10_000)
@@ -786,6 +790,10 @@ describe('a timer that runs while the page is hidden', () => {
     expect(done).not.toHaveBeenCalled()
     goVisible()
     expect(useUI.getState().work).toBe(null)
-    expect(done).toHaveBeenCalledWith(2, { chimed: false })
+    expect(done).toHaveBeenCalledWith(2, { chimed: false, endedAt: endsAt })
+    const seen = vi.fn()
+    useUI.getState().startWork(2, 'Plank', seen)
+    vi.advanceTimersByTime(2000)
+    expect(seen).toHaveBeenCalledWith(2, { chimed: true })
   })
 })

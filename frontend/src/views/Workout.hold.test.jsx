@@ -245,6 +245,47 @@ describe('a timed exercise that runs itself, and a move during its rest', () => 
   })
 })
 
+// Owner's call: a hold that runs out while the phone is locked has been followed by its rest ever
+// since. Back on screen the rest has the time that is really left, and one that is over too leaves
+// the next hold to a tap, as any rest that ran out unseen does.
+describe('a timed exercise that runs itself, while the phone is locked', () => {
+  const setHidden = hidden => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden })
+    document.dispatchEvent(new Event('visibilitychange'))
+  }
+  afterEach(() => setHidden(false))
+  const plank3 = () => ({ ...plank(), sets: [0, 1, 2].map(() => ({ sec: 10, w: 0, done: false })) })
+
+  it('back before its rest is over: the rest has been counting since the hold ended, and runs on into the next hold', () => {
+    renderWorkout([plank3()])
+    const restSec = useStore.getState().S.restSec
+    const holdEnds = Date.now() + 10_000
+    startHold()
+    setHidden(true)
+    act(() => { vi.advanceTimersByTime(40_000) })               // the hold ran out 30 s ago
+    act(() => setHidden(false))
+    expect(doneOf()).toEqual([true, false, false])
+    expect(useUI.getState().timer).toMatchObject({ kind: 'set', endsAt: holdEnds + restSec * 1000, left: restSec - 30 })
+    act(() => { vi.advanceTimersByTime((restSec - 30) * 1000) })
+    expect(useUI.getState().work).toMatchObject({ owner: { idx: 0, i: 1 } })
+  })
+
+  it('back after its rest is over too: Ready, and the next hold waits for a tap', () => {
+    renderWorkout([plank3()])
+    const restSec = useStore.getState().S.restSec
+    startHold()
+    setHidden(true)
+    act(() => { vi.advanceTimersByTime((10 + restSec + 5) * 1000) })
+    act(() => setHidden(false))
+    expect(doneOf()).toEqual([true, false, false])
+    expect(useUI.getState().timer).toMatchObject({ ready: true, left: 0 })
+    expect(useUI.getState().toastMsg).toBe('Rest’s over. Next set!')
+    expect(useUI.getState().work).toBeNull()
+    act(() => { vi.advanceTimersByTime(60_000) })
+    expect(useUI.getState().work).toBeNull()
+  })
+})
+
 // Settings decided (#165): a reload keeps the chain. A rest is kept with where it hands over to
 // (gym_rest), a hold with its row (gym_work), and the workout screen acts on both once it is back.
 describe('a timed exercise that runs itself, across a reload', () => {

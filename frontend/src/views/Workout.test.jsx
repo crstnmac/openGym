@@ -544,6 +544,22 @@ describe('Workout set completion flow', () => {
     expect(mocks.S.active.cur).toBe(1)
   })
 
+  // A hold that ran out while the page was hidden says when it ended (useUI runWork), and the rest
+  // it earned, a switch-sides pause included, counts from then (useUI startRest's `since`).
+  it('a hold that ran out unseen hands its end to the rest it earned, and so does one side of a per-side hold', async () => {
+    await mount([hold('plank', [false, false, false])])
+    await pressStart(0)
+    await act(async () => { mocks.startWork.mock.calls[0][2](30, { chimed: false, endedAt: 1234 }) })
+    expect(mocks.startRest).toHaveBeenLastCalledWith(90, 0, expect.objectContaining({ kind: 'set', since: 1234 }))
+
+    await unmount(); vi.clearAllMocks()
+    const sides = hold('side-plank', [], { sets: [{ sec: 30, w: 0, side: 'L', done: false }, { sec: 30, w: 0, side: 'R', done: false }] })
+    await mount([sides])
+    await pressStart(0)
+    await act(async () => { mocks.startWork.mock.calls[0][2](30, { chimed: false, endedAt: 5678 }) })
+    expect(mocks.startRest).toHaveBeenLastCalledWith(10, 0, expect.objectContaining({ kind: 'switch', since: 5678 }))
+  })
+
   // Where the marker stood is read before the rest's own move: in the List layout a hold can run
   // on an exercise the marker is not on, and the end of its rest takes the marker there.
   it('a hold run away from the marker in the List layout still chains, after the rest moves the marker to it', async () => {

@@ -1595,7 +1595,7 @@ function ActiveWorkout() {
   }
   // What a hold hands back to its row: on its end, its Done, or a rest displacing it. Also bound
   // again to a hold restored after a reload (useUI.bindWork, below).
-  const holdDone = (owner, plan) => (elapsed, { abandoned = false, chimed = false } = {}) => {
+  const holdDone = (owner, plan) => (elapsed, { abandoned = false, chimed = false, endedAt } = {}) => {
     // The row may have moved while the hold ran (a set copied or removed above it, an exercise
     // added above its own): write to where it is now. holdAt is that place (deleteActiveSet,
     // copyActiveSet, shiftHoldExercise).
@@ -1621,7 +1621,8 @@ function ActiveWorkout() {
     }
     mutEntry(idx, x => { x.sets[i].sec = elapsed; delete x.sets[i].planSec })
     // `fromHold`: the hold ended by itself or by its Done, which is what lets it chain the next one.
-    if (!useStore.getState().S.active.entries[idx].sets[i].done) latest.toggle(idx, i, undefined, { quiet: chimed, fromHold: true })
+    // `endedAt`: it ran out while the page was hidden, and its rest has been counting since.
+    if (!useStore.getState().S.active.entries[idx].sets[i].done) latest.toggle(idx, i, undefined, { quiet: chimed, fromHold: true, since: endedAt })
   }
   // A hold that came back from a reload has no handler yet: this screen gives it its own.
   const holdDoneRef = useRef(holdDone)
@@ -1640,7 +1641,9 @@ function ActiveWorkout() {
   // (store/useUI.js). The tick's own beep would sound over the chime's first note and clip it,
   // and its short buzz would cut the pattern off: a new vibrate call replaces the running one.
   // `fromHold`: the hold ended by itself or by its Done, which is what lets it chain the next one.
-  const toggle = (idx, i, side, { quiet = false, fromHold = false } = {}) => {
+  // `since`: when that hold ended, if it ran out while the page was hidden: the rest it earned has
+  // been counting since then (useUI.startRest), not from this tick on the page coming back.
+  const toggle = (idx, i, side, { quiet = false, fromHold = false, since } = {}) => {
     // Ticking a set ends the typing in that row: drop the keyboard before the rest timer, the
     // effort sheet or the next exercise moves in. WebKit keeps the input focused across the
     // button tap, and a focused input with its keyboard gone is what leaves the tab bar
@@ -1725,7 +1728,7 @@ function ActiveWorkout() {
       // `move` false leaves it out (a re-check, below).
       const rest = (move = true) => {
         const hand = { ...(move ? { from: useStore.getState().S.active?.cur } : {}), ...chainTo(freshUnitDone ? -1 : nextUndoneAfter(rows, i)) }
-        startRest(restAfter, idx, { kind, phase, forSet: i, hand: Object.keys(hand).length ? hand : undefined })
+        startRest(restAfter, idx, { kind, phase, forSet: i, hand: Object.keys(hand).length ? hand : undefined, ...(since != null ? { since } : {}) })
       }
       // Finishing an exercise owes you the next one. Normally the rest carries you there when
       // it ends; when nothing is going to time that gap — the rest timer is Off, the next
@@ -1759,7 +1762,7 @@ function ActiveWorkout() {
       const partnerAt = sideOf(rows[i]) === 'L' && sideOf(rows[i + 1]) === 'R' ? i + 1
         : sideOf(rows[i]) === 'R' && sideOf(rows[i - 1]) === 'L' ? i - 1 : -1
       if (m === 'time' && partnerAt >= 0 && !rows[partnerAt].done && restAfter > 0) {
-        startRest(Math.min(SWITCH_SIDES_SEC, restAfter), idx, { kind: 'switch', forSet: i, hand: chainTo(partnerAt) })
+        startRest(Math.min(SWITCH_SIDES_SEC, restAfter), idx, { kind: 'switch', forSet: i, hand: chainTo(partnerAt), ...(since != null ? { since } : {}) })
         return
       }
 
