@@ -105,9 +105,11 @@ let timerTick = null
 // start a hold nobody watched, but moving the screen on to the next exercise is exactly what you
 // want waiting for you when you unlock the phone.
 let handOver = null
-// Whether the running rest has already had its hidden-page "rest over" (see runRest). Reset by
-// startRest; a flag rather than a key on endsAt, which ±15 s moves.
-let hiddenAlerted = false
+// Whether the running rest has already had its end on a hidden page (see runRest): the audio
+// session let go and, for a guest, the "rest over". Reset by startRest, and by the notification's
+// own buttons bringing a rest back to life (followNativeRest); a flag rather than a key on endsAt,
+// which ±15 s moves.
+let hiddenOver = false
 let workInt = null
 let workTick = null
 let workDone = null
@@ -202,10 +204,16 @@ const runRest = (set, get) => {
     // notification stands in, once per rest since the interval keeps calling, but only where this
     // browser still holds a push subscription (restAlertsOn); a guest that never signed in here
     // gets no alert. The Android app has its own alarm for this (bookRestEnd).
+    // The audio session is not on screen either, and it goes at the end: held on, it kept the
+    // volume buttons on a timer with nothing left to count and, under 'playback', the phone's
+    // music paused for as long as the phone stayed in the pocket. Once, like the alert: every
+    // holdSession(false) puts the context's sleep off again.
     if (document.hidden) {
-      if (left <= 0 && !MOBILE && !useStore.getState().user && !hiddenAlerted) {
-        hiddenAlerted = true
-        maybeRestNotification()
+      if (left <= 0 && !hiddenOver) {
+        hiddenOver = true
+        hush()
+        holdSession(false)
+        if (!MOBILE && !useStore.getState().user) maybeRestNotification()
       }
       return
     }
@@ -351,7 +359,7 @@ export const useUI = create((set, get) => ({
     // was away" and finished in silence — a one-second rest, started on screen, over on screen,
     // with no beep, no vibration and no flash. Each timer starts from where the page is now.
     pageHiddenAt = document.hidden ? Date.now() : null
-    hiddenAlerted = false
+    hiddenOver = false
     const endsAt = Date.now() + sec * 1000
     set({ timer: { left: sec, total: sec, endsAt, forIdx, ...(forSet != null ? { forSet } : {}), ...(kind ? { kind } : {}), ...(phase ? { phase } : {}), ...(hand ? { hand } : {}) } })
     // The last seconds are queued now, inside the tap that finished the set, rather than beeped
@@ -448,6 +456,7 @@ export const useUI = create((set, get) => ({
     set({ timer: { left, total, endsAt, forIdx, ...kind } })
     countdown(useStore.getState().S.sound, left)   // against the notification's end, as addRest does
     holdSession(true)
+    hiddenOver = false   // its end is ahead again: +15 s on one that ran out in the pocket
     if (ticking) return
     // As in resumeRest: a hide from while it was held or over is no catch-up of this countdown.
     pageHiddenAt = document.hidden ? Date.now() : null

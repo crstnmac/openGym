@@ -740,6 +740,43 @@ describe('a timer that runs while the page is hidden', () => {
     expect(useUI.getState().timer).not.toBe(null)    // the rest itself still waits for the screen
   })
 
+  // Nothing on screen changes, but the audio session is no screen: held past the end it keeps the
+  // volume buttons on a timer with nothing left to count and, under 'playback', the phone's music
+  // paused, for as long as the phone stays in the pocket. It goes at the end, once.
+  it('a hidden rest that runs out lets go of the audio session then, not when the page is back', () => {
+    useUI.getState().startRest(2, 0, { kind: 'set' })
+    goHidden()
+    holdSession.mockClear()
+    vi.advanceTimersByTime(1000)
+    expect(holdSession).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1000)
+    expect(holdSession.mock.calls).toEqual([[false]])
+    vi.advanceTimersByTime(10_000)                    // and once: each call pushes the sleep out again
+    expect(holdSession.mock.calls).toEqual([[false]])
+    expect(useUI.getState().timer).toMatchObject({ left: 2 })   // the rest itself still waits for the screen
+    goVisible()
+    expect(useUI.getState().timer).toMatchObject({ left: 0, ready: true })
+  })
+
+  // Letting go leaves the ticking alone: a page back on screen without a visibilitychange to say
+  // so still has its rest finished by the next tick.
+  it('and the rest keeps ticking, so a page back without a visibilitychange still finishes it', () => {
+    useUI.getState().startRest(2, 0, { kind: 'set' })
+    goHidden()
+    vi.advanceTimersByTime(3000)
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true })   // back, no event
+    vi.advanceTimersByTime(1000)
+    expect(useUI.getState().timer).toMatchObject({ left: 0, ready: true })
+  })
+
+  it('so does a switch-sides pause', () => {
+    useUI.getState().startRest(2, 0, { kind: 'switch' })
+    goHidden()
+    holdSession.mockClear()
+    vi.advanceTimersByTime(5000)
+    expect(holdSession.mock.calls).toEqual([[false]])
+  })
+
   it('a hidden hold finishes on the first tick back, at its full length', () => {
     const done = vi.fn()
     useUI.getState().startWork(2, 'Plank', done)
