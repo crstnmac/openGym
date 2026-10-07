@@ -305,3 +305,54 @@ test('models(): OpenAI’s list is cut to what Chat Completions can use; a compa
   const co = fakeFetch([ok({ data: [{ id: 'qwen2.5:3b' }, { id: 'llama3.2' }] })]);
   assert.deepEqual((await compatible.models({ providerOptions: { compatible: { baseUrl: 'http://ollama:11434' } } }, {}, { fetch: co })).models, ['llama3.2', 'qwen2.5:3b']);
 });
+
+test('compatible: a base URL that already names its version is not given a second /v1', async () => {
+  const { urlFor } = await import('../coach/core/adapters/http.js');
+  const v = { versionInBase: true };
+  // The ones people actually paste — each used to become …/v1/…/v1/chat/completions, a 404.
+  assert.equal(urlFor('https://api.deepinfra.com/v1/openai', '/v1/chat/completions', v), 'https://api.deepinfra.com/v1/openai/chat/completions');
+  assert.equal(urlFor('https://openrouter.ai/api/v1', '/v1/chat/completions', v), 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(urlFor('https://api.groq.com/openai/v1', '/v1/models', v), 'https://api.groq.com/openai/v1/models');
+  assert.equal(urlFor('https://generativelanguage.googleapis.com/v1beta/openai', '/v1/chat/completions', v), 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+  // A bare host still gets /v1, as before.
+  assert.equal(urlFor('http://ollama:11434', '/v1/chat/completions', v), 'http://ollama:11434/v1/chat/completions');
+  assert.equal(urlFor('https://openrouter.ai/api', '/v1/models', v), 'https://openrouter.ai/api/v1/models');
+  // A path segment that merely starts with v is not a version.
+  assert.equal(urlFor('https://gw.example/vllm', '/v1/models', v), 'https://gw.example/vllm/v1/models');
+  // Specs that do not opt in are untouched.
+  assert.equal(urlFor('https://api.anthropic.com/v1', '/v1/messages'), 'https://api.anthropic.com/v1/v1/messages');
+
+  // End to end: DeepInfra's documented base, both the model list and a job.
+  const deep = { provider: 'compatible', providerOptions: { compatible: { baseUrl: 'https://api.deepinfra.com/v1/openai' } } };
+  const lm = fakeFetch([ok({ data: [{ id: 'deepseek-ai/DeepSeek-V3' }] })]);
+  assert.deepEqual((await compatible.models(deep, env, { fetch: lm })).models, ['deepseek-ai/DeepSeek-V3']);
+  assert.equal(lm.calls[0].url, 'https://api.deepinfra.com/v1/openai/models');
+  const job = fakeFetch([ok({ choices: [{ message: { content: ANSWER }, finish_reason: 'stop' }] })]);
+  const r = await compatible.invoke({ cfg: deep, prompt: 'P', env, model: 'deepseek-ai/DeepSeek-V3', fetch: job });
+  assert.equal(r.code, 0);
+  assert.equal(job.calls[0].url, 'https://api.deepinfra.com/v1/openai/chat/completions');
+  assert.equal(job.calls[0].headers.authorization, 'Bearer compat-1');
+});
+
+test('hosted presets: every one has its endpoint built in and calls it with its own key', async () => {
+  const { COMPAT_PRESETS } = await import('../coach/core/providers.js');
+  const { adapterFor } = await import('../coach/adapters/index.js');
+  const ids = Object.keys(COMPAT_PRESETS);
+  assert.ok(ids.length >= 9);
+  const envVars = new Set();
+  for (const id of ids) {
+    const meta = HTTP_PROVIDERS[id];
+    assert.ok(meta.compat && meta.http && !meta.baseUrl, `${id}: a fixed endpoint, not a URL field`);
+    assert.match(meta.defaultBase, /^https:\/\/[^/]+\/.*v\d/, `${id}: https, version in the base`);
+    assert.ok(!envVars.has(meta.apiKeyEnv), `${id}: its own key variable`); envVars.add(meta.apiKeyEnv);
+    const a = adapterFor(id);
+    assert.equal(a.spawns, false, id);
+    const f = fakeFetch([ok({ choices: [{ message: { content: ANSWER }, finish_reason: 'stop' }] })]);
+    const r = await a.invoke({ cfg: { provider: id }, prompt: 'P', env: { [meta.apiKeyEnv]: 'k-' + id }, model: 'm', fetch: f });
+    assert.equal(r.code, 0, id);
+    assert.equal(f.calls[0].url, meta.defaultBase + '/chat/completions', `${id}: no doubled /v1`);
+    assert.equal(f.calls[0].headers.authorization, 'Bearer k-' + id);
+    assert.ok('max_tokens' in f.calls[0].body, id);
+  }
+  assert.equal(HTTP_PROVIDERS.deepinfra.defaultBase, 'https://api.deepinfra.com/v1/openai');
+});

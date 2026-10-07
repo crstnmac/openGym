@@ -106,7 +106,8 @@ export default function AdminCoach() {
 
   // Chips, grouped.
   const groups = [
-    { title: 'Paste an API key', hint: 'Plain HTTPS to the provider. Works on the default api image — nothing extra to install.', items: d.providers.filter(p => p.http) },
+    { title: 'Paste an API key', hint: 'Plain HTTPS to the provider. Works on the default api image — nothing extra to install.', items: d.providers.filter(p => p.http && !p.compat) },
+    { title: 'Hosted model services', hint: 'OpenAI-compatible APIs with the endpoint built in — paste a key, then "List models" to pick one.', items: d.providers.filter(p => p.compat) },
     { title: 'Runs a local AI runtime', hint: 'Needs the bigger api image built with --target coach.', items: d.providers.filter(p => RUNTIME_IDS.includes(p.id)) },
     { title: 'Testing', hint: 'A built-in fake that answers instantly, so the whole loop can be tried without an account.', items: d.providers.filter(p => TESTING_IDS.includes(p.id)) }
   ]

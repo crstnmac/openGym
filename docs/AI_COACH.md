@@ -20,6 +20,7 @@ rest of this document applies to you.
 | **OpenAI API** | plain HTTPS to `api.openai.com` | an API key | default |
 | **Google Gemini** | plain HTTPS to `generativelanguage.googleapis.com` | an API key | default |
 | **OpenAI-compatible endpoint** | plain HTTPS to a URL you give it — Ollama, LM Studio, vLLM, OpenRouter, a gateway of your own | an API key, optional | default |
+| **Hosted model services** — OpenRouter, DeepInfra, Groq, Together AI, Mistral, xAI (Grok), DeepSeek, Fireworks AI, Cerebras | plain HTTPS, the endpoint built in | an API key from that service | default |
 | **Claude (Anthropic)** | the Claude Agent SDK, inside the container | a `claude setup-token` | `coach` |
 | **Codex (OpenAI)** | the Codex CLI, inside the container | **Sign in with ChatGPT** on the admin card (your subscription), or an OpenAI API key | `coach` |
 

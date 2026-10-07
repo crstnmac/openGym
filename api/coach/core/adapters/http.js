@@ -62,6 +62,23 @@ async function readJson(res) {
   try { return { data: JSON.parse(text), text }; } catch { return { data: null, text }; }
 }
 
+/**
+ * Where a request actually goes. A spec's paths carry the API version (`/v1/chat/completions`)
+ * because the default endpoints are bare hosts. A compatible endpoint is often given with the
+ * version already in it — DeepInfra is `https://api.deepinfra.com/v1/openai`, OpenRouter
+ * `…/api/v1`, Groq `…/openai/v1`, Gemini's compat layer `…/v1beta/openai` — and naively
+ * appending made `…/v1/openai/v1/chat/completions`, a 404 every time. So for a spec that opts
+ * in, a base whose path already names a version keeps it and the path drops its own; a bare
+ * host (`http://ollama:11434`) still gets `/v1` as before.
+ */
+export function urlFor(base, path, { versionInBase = false } = {}) {
+  if (!versionInBase) return base + path;
+  let pathname = '';
+  try { pathname = new URL(base).pathname; } catch { return base + path; }
+  const hasVersion = /(^|\/)v\d+[a-z0-9]*(\/|$)/i.test(pathname);
+  return hasVersion ? base + path.replace(/^\/v\d+[a-z0-9]*(?=\/)/i, '') : base + path;
+}
+
 export function httpAdapter(spec) {
   const id = spec.id;
   const meta = HTTP_PROVIDERS[id];
@@ -101,7 +118,7 @@ export function httpAdapter(spec) {
       if (!key && !meta.keyOptional) return { ok: false, error: 'no API key configured', models: [] };
       let res;
       try {
-        res = await call(fetchImpl, base + spec.modelsPath, { method: 'GET', headers: spec.headers(key) }, timeoutMs, signal);
+        res = await call(fetchImpl, urlFor(base, spec.modelsPath, spec), { method: 'GET', headers: spec.headers(key) }, timeoutMs, signal);
       } catch (e) {
         return { ok: false, error: e.name === 'AbortError' ? 'timed out' : `could not reach ${hostOf(base)}: ${trim(e.message, 120)}`, models: [] };
       }
@@ -133,7 +150,7 @@ export function httpAdapter(spec) {
       for (;;) {
         let res;
         try {
-          res = await call(fetchImpl, base + spec.path(chosen), {
+          res = await call(fetchImpl, urlFor(base, spec.path(chosen), spec), {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...spec.headers(key) },
             body: JSON.stringify(body)

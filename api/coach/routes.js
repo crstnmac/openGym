@@ -156,7 +156,7 @@ export function coachRoutes({ json, readBody, readSession, requireAdmin }) {
         providers: Object.entries(cfgStore.PROVIDERS).map(([id, p]) => ({
           id, label: p.label, runtime: p.runtime,
           setupToken: !!p.setupToken, deviceLogin: !!p.deviceLogin, apiKey: !!p.apiKeyEnv,
-          http: !!p.http, baseUrl: !!p.baseUrl, keyOptional: !!p.keyOptional, keyPlaceholder: p.keyPlaceholder || null,
+          http: !!p.http, compat: !!p.compat, baseUrl: !!p.baseUrl, keyOptional: !!p.keyOptional, keyPlaceholder: p.keyPlaceholder || null,
           defaultModel: p.defaultModel || null,
           // Which providers already hold a key — so switching chips is visibly not a reset.
           connected: !!(cfgStore.authFor(cfg, id) && cfgStore.authFor(cfg, id).data)

@@ -12,6 +12,8 @@ export function chatCompletionsSpec(id, { maxTokensField = 'max_completion_token
     id,
     path: () => '/v1/chat/completions',
     modelsPath: '/v1/models',
+    // A base URL that already ends in its version (…/v1, …/v1/openai) is used as given.
+    versionInBase: true,
     headers: key => (key ? { authorization: 'Bearer ' + key } : {}),
     // The rules ride in the system message, byte-identical for every job of a task, so a
     // llama.cpp/Ollama endpoint can reuse its KV prefix cache and only ever re-processes the

@@ -9,7 +9,7 @@
  * not. `compatible` has no default at all: an OpenAI-compatible endpoint is whatever the owner
  * pointed it at, so the model has to come from what that endpoint actually serves.
  */
-export const HTTP_PROVIDERS = Object.freeze({
+const BASE_PROVIDERS = {
   anthropic: Object.freeze({
     label: 'Anthropic API', runtime: 'HTTPS', http: true,
     apiKeyEnv: 'ANTHROPIC_API_KEY', oauthEnv: null,
@@ -41,8 +41,29 @@ export const HTTP_PROVIDERS = Object.freeze({
     defaultModel: null,
     keyPlaceholder: '(optional)'
   })
+};
+
+/* Hosted services that speak the same Chat Completions shape as `compatible`, with their
+ * endpoint built in so all that is left to paste is a key. Each runs on the compatible adapter's
+ * request shape (core/adapters/presets.js); nothing else in the codebase knows which one it is.
+ * No default model: these catalogues change monthly, and "List models" asks the provider. */
+const preset = (label, defaultBase, keyPlaceholder, apiKeyEnv) => Object.freeze({
+  label, runtime: 'HTTPS', http: true, compat: true,
+  apiKeyEnv, oauthEnv: null, defaultBase, defaultModel: null, keyPlaceholder
+});
+export const COMPAT_PRESETS = Object.freeze({
+  openrouter: preset('OpenRouter', 'https://openrouter.ai/api/v1', 'sk-or-…', 'OPENROUTER_API_KEY'),
+  deepinfra: preset('DeepInfra', 'https://api.deepinfra.com/v1/openai', 'DeepInfra API token', 'DEEPINFRA_API_KEY'),
+  groq: preset('Groq', 'https://api.groq.com/openai/v1', 'gsk_…', 'GROQ_API_KEY'),
+  together: preset('Together AI', 'https://api.together.xyz/v1', 'Together API key', 'TOGETHER_API_KEY'),
+  mistral: preset('Mistral', 'https://api.mistral.ai/v1', 'Mistral API key', 'MISTRAL_API_KEY'),
+  xai: preset('xAI (Grok)', 'https://api.x.ai/v1', 'xai-…', 'XAI_API_KEY'),
+  deepseek: preset('DeepSeek', 'https://api.deepseek.com/v1', 'sk-…', 'DEEPSEEK_API_KEY'),
+  fireworks: preset('Fireworks AI', 'https://api.fireworks.ai/inference/v1', 'fw_…', 'FIREWORKS_API_KEY'),
+  cerebras: preset('Cerebras', 'https://api.cerebras.ai/v1', 'csk-…', 'CEREBRAS_API_KEY')
 });
 
+export const HTTP_PROVIDERS = Object.freeze({ ...BASE_PROVIDERS, ...COMPAT_PRESETS });
 export const HTTP_PROVIDER_IDS = Object.freeze(Object.keys(HTTP_PROVIDERS));
 
 /** The base URL a provider will actually be called at: the configured override, else the default. */
