@@ -408,7 +408,7 @@ function MeasureSheet({ close }) {
   }
   return <>
     <h3>{t('Log measurements')}</h3>
-    <div className="muted small">{t('Today') + ', ' + fmtDate(todayISO(), true)} · {t('Fill in what you measured — leave the rest empty.')}</div>
+    <div className="muted small">{t('Today') + ', ' + fmtDate(todayISO(), true)} · {t('Fill in what you measured. Leave the rest empty.')}</div>
     <div className="list" style={{ gap: 0, marginTop: 10 }}>
       {sites.map(k => {
         const last = latestOf(st.measures, k)
@@ -440,7 +440,7 @@ function Measures() {
   })
   if (!days.length) return <>
     <h3>{t('Measurements')}</h3>
-    <div className="empty"><div className="ico"><Icon name="scale" /></div>{t('No measurements yet — log your waist, hips and more to follow them over time.')}</div>
+    <div className="empty"><div className="ico"><Icon name="scale" /></div>{t('No measurements yet. Log your waist, hips and more to follow them over time.')}</div>
   </>
   return <>
     <h3>{t('Measurements')}</h3>

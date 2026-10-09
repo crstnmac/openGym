@@ -43,6 +43,6 @@ export default function MeasureCard({ S, onLog, onAll, h = 140 }) {
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
         <Button size="sm" variant="ghost" trailingIcon="chevronRight" onClick={onAll}>{t('All measurements')}</Button>
       </div>
-    </> : <div className="empty"><div className="ico"><Icon name="scale" /></div>{t('No measurements yet — log your waist, hips and more to follow them over time.')}</div>}
+    </> : <div className="empty"><div className="ico"><Icon name="scale" /></div>{t('No measurements yet. Log your waist, hips and more to follow them over time.')}</div>}
   </div>
 }
