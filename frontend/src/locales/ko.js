@@ -2085,7 +2085,6 @@ export default {
   'Uploaded to Strava': 'Strava에 업로드됨',
   'Uploading…': '업로드 중…',
   '{0} workouts uploaded. Disconnecting only forgets the connection here; it does not touch other apps on your Strava account.': '운동 {0}개 업로드됨. 연결을 해제하면 여기의 연결만 지워지며, Strava 계정의 다른 앱에는 영향이 없습니다.',
-  'Enter how long it took — at least 1 minute.': '걸린 시간을 입력하세요 — 최소 1분.',
   // Health Connect on the Android app (#200)
   'Health Connect': '헬스 커넥트',
   'Write to Health Connect': '헬스 커넥트에 기록',

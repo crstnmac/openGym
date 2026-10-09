@@ -2085,7 +2085,6 @@ export default {
   'Uploaded to Strava': 'Caricato su Strava',
   'Uploading…': 'Caricamento…',
   '{0} workouts uploaded. Disconnecting only forgets the connection here; it does not touch other apps on your Strava account.': '{0} allenamenti caricati. Disconnettere dimentica solo il collegamento qui; le altre app del tuo account Strava non vengono toccate.',
-  'Enter how long it took — at least 1 minute.': 'Inserisci quanto è durato — almeno 1 minuto.',
   // Health Connect on the Android app (#200)
   'Health Connect': 'Connessione Salute',
   'Write to Health Connect': 'Scrivi in Connessione Salute',

@@ -78,7 +78,7 @@ afterEach(() => {
 })
 
 const mount = async () => {
-  await act(async () => { root.render(<Settings />) })
+  await act(async () => { root.render(<Settings page="data" />) })
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
 }
 const row = text => [...host.querySelectorAll('.lrow')].find(r => r.textContent.includes(text))

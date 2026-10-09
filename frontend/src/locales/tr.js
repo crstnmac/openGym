@@ -2085,7 +2085,6 @@ export default {
   'Uploaded to Strava': 'Strava\'ya yüklendi',
   'Uploading…': 'Yükleniyor…',
   '{0} workouts uploaded. Disconnecting only forgets the connection here; it does not touch other apps on your Strava account.': '{0} antrenman yüklendi. Bağlantıyı kesmek yalnızca buradaki bağlantıyı unutur; Strava hesabındaki diğer uygulamaları etkilemez.',
-  'Enter how long it took — at least 1 minute.': 'Ne kadar sürdüğünü gir — en az 1 dakika.',
   // Health Connect on the Android app (#200)
   'Health Connect': 'Health Connect',
   'Write to Health Connect': 'Health Connect’e yaz',

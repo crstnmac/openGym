@@ -2085,7 +2085,6 @@ export default {
   'Uploaded to Strava': 'Wysłano na Stravę',
   'Uploading…': 'Wysyłanie…',
   '{0} workouts uploaded. Disconnecting only forgets the connection here; it does not touch other apps on your Strava account.': 'Wysłane treningi: {0}. Rozłączenie usuwa tylko połączenie tutaj; nie wpływa na inne aplikacje na Twoim koncie Strava.',
-  'Enter how long it took — at least 1 minute.': 'Wpisz, ile to trwało — co najmniej 1 minutę.',
   // Health Connect on the Android app (#200)
   'Health Connect': 'Health Connect',
   'Write to Health Connect': 'Zapisuj w Health Connect',

@@ -2085,7 +2085,6 @@ export default {
   'Uploaded to Strava': 'Strava पर अपलोड हो गया',
   'Uploading…': 'अपलोड हो रहा है…',
   '{0} workouts uploaded. Disconnecting only forgets the connection here; it does not touch other apps on your Strava account.': '{0} वर्कआउट अपलोड हुए। डिस्कनेक्ट करने से सिर्फ़ यहाँ का कनेक्शन भूला जाता है; आपके Strava खाते के दूसरे ऐप पर असर नहीं पड़ता।',
-  'Enter how long it took — at least 1 minute.': 'बताएँ कि इसमें कितना समय लगा — कम से कम 1 मिनट।',
   // Health Connect on the Android app (#200)
   'Health Connect': 'Health Connect',
   'Write to Health Connect': 'Health Connect में लिखें',

@@ -2096,7 +2096,6 @@ export default {
   'Uploaded to Strava': 'อัปโหลดไปยัง Strava แล้ว',
   'Uploading…': 'กำลังอัปโหลด…',
   '{0} workouts uploaded. Disconnecting only forgets the connection here; it does not touch other apps on your Strava account.': 'อัปโหลดการฝึกแล้ว {0} ครั้ง การยกเลิกการเชื่อมต่อจะลืมการเชื่อมต่อที่นี่เท่านั้น ไม่กระทบแอปอื่นในบัญชี Strava ของคุณ',
-  'Enter how long it took — at least 1 minute.': 'ใส่ระยะเวลาที่ใช้ — อย่างน้อย 1 นาที',
   // Health Connect on the Android app (#200)
   'Health Connect': 'Health Connect',
   'Write to Health Connect': 'เขียนลงใน Health Connect',

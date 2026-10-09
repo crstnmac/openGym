@@ -2092,7 +2092,6 @@ export default {
   'Uploading…': 'Загрузка…',
   '{0} workouts uploaded. Disconnecting only forgets the connection here; it does not touch other apps on your Strava account.': 'Загружено тренировок: {0}. Отключение лишь забывает подключение здесь; другие приложения в вашем аккаунте Strava не затрагиваются.',
   'Signed in from another tab. Your workout came along, keep going here.': 'Вход выполнен в другой вкладке. Тренировка сохранилась, продолжайте здесь.',
-  'Enter how long it took — at least 1 minute.': 'Укажите, сколько это длилось — не меньше 1 минуты.',
   // Health Connect on the Android app (#200)
   'Health Connect': 'Health Connect',
   'Write to Health Connect': 'Записывать в Health Connect',
