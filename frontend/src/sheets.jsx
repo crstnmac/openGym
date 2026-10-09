@@ -961,12 +961,18 @@ export function detailTags(ex) {
 
 function ExerciseDetail({ ex, close }) {
   const st = useStore(s => s.S)
-  const last = lastEntryFor(st, ex.id)
-  const best = bestWeightFor(st, ex.id)
-  const fav = isFav(st, ex.id)
+  // The row in customEx is what makes this exercise yours. `custom: true` is written on create,
+  // but a copy that arrived without it is still yours, and Edit/Delete used to require the flag
+  // (issue #358). Those buttons also used to sit under the animation, past the point a sheet
+  // that does not scroll can reach — Firefox and Safari reporters never saw Delete (issue #378).
+  const owned = (st.customEx || []).find(c => c && c.id === ex?.id) || null
+  const view = owned ? (owned.custom ? owned : { ...owned, custom: true }) : ex
+  const last = lastEntryFor(st, view.id)
+  const best = bestWeightFor(st, view.id)
+  const fav = isFav(st, view.id)
   const flipFav = () => {
     let on = false
-    update(s => { on = toggleFav(s, ex.id) })
+    update(s => { on = toggleFav(s, view.id) })
     toast(on ? t('Added to favourites') : t('Removed from favourites'))
   }
   return <>
@@ -977,7 +983,11 @@ function ExerciseDetail({ ex, close }) {
         <Icon name={fav ? 'starFill' : 'star'} />
       </button>
     </div>
-    <Media ex={ex} />
+    {owned && <div className="row" style={{ gap: 8, marginTop: 8 }}>
+      <Button icon="pencil" style={{ flex: 1 }} onClick={() => { close(); customExSheet(view) }}>{t('Edit')}</Button>
+      <Button variant="danger" icon="trash" style={{ flex: 1 }} onClick={() => deleteCustomEx(view, close)}>{t('Delete')}</Button>
+    </div>}
+    <Media ex={view} />
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '10px 0' }}>
       {detailTags(ex).map(tg => <span key={tg.key} className={'tag' + (tg.acc ? ' acc' : '')}>{tg.icon && <Icon name={tg.icon} />}{tg.label}</span>)}
     </div>
@@ -996,8 +1006,8 @@ function ExerciseDetail({ ex, close }) {
     {/* No one-rep max on an assistance machine: the load is the help you were given, so the
         calculator would answer "your 1RM is 23 kg" about a number that gets smaller as you get
         stronger (issue #232). Cardio has none for the same kind of reason. */}
-    {!isCardio(ex) && !isAssisted(ex) && <OneRM ex={ex} />}
-    {instrFor(ex).length > 0 &&<><h4 className="sec">{t('How to')}{!INSTR_LANGS.includes(getLang()) && <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}> · {t('instructions in English')}</span>}</h4><ol className="steps-list">{instrFor(ex).map((s, i) => <li key={i}>{s}</li>)}</ol></>}
+    {!isCardio(view) && !isAssisted(view) && <OneRM ex={view} />}
+    {instrFor(view).length > 0 &&<><h4 className="sec">{t('How to')}{!INSTR_LANGS.includes(getLang()) && <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}> · {t('instructions in English')}</span>}</h4><ol className="steps-list">{instrFor(view).map((s, i) => <li key={i}>{s}</li>)}</ol></>}
   </>
 }
 export const exerciseDetailSheet = ex => ui().openSheet(close => <ExerciseDetail ex={ex} close={close} />)
@@ -1533,6 +1543,8 @@ const intensifierToSave = x => (x.type === 'dropset'
 
 function ExConfig({ ex, existing, onSave, onDelete, onReplace, close, routine, initial, saveLabel }) {
   const st = useStore(s => s.S)
+  const customOwned = (st.customEx || []).find(c => c && c.id === ex?.id) || null
+  const customView = customOwned ? (customOwned.custom ? customOwned : { ...customOwned, custom: true }) : null
   const cardio = isCardio(ex.id)
   const speedUnit = speedUnitOf(st)
   const seed = existing || initial || defaultConfig(ex.id)
@@ -1632,7 +1644,7 @@ function ExConfig({ ex, existing, onSave, onDelete, onReplace, close, routine, i
   }
   return <>
     <h3 className={exerciseNameClass(ex)}>{exerciseNameFor(ex)}</h3>
-    <Media ex={ex} />
+    <Media ex={customView || ex} />
     {/* The same tags the exercise detail sheet shows, secondaries included: choosing what goes
         into a plan is exactly when "what else does this hit" matters, and until now that was
         only visible from the Exercises tab, after the fact. Custom exercises and the newer
