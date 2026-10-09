@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.4.1 — 2026-10-09
+
+The fork caught up with upstream (v1.3.10 to v1.3.12: the new design, Settings on sub-pages,
+rotation, swipe actions and the sync overhaul) and took in these community pull requests:
+back-off sets (#475), starter plans fitted to an equipment profile with the bench and the pull-up
+bar as their own equipment (#469, #464), the Focus workout view (#222), the sets-based fatigue
+model (#436), seven 1RM formulas (#195), a per-set progress chart (#450), sharing a workout as an
+image (#455), exercises as picture cards (#416), built-in exercises you can edit and hide (#259),
+optional Strava upload (#478), and a run of fixes (#461, #442, #443, #433, #446, #432, #430, #407,
+#408, #456, #462, #402, #404, #457, #426, #417, #481, #412, #415, #413, #458, #451, #479).
+Body measurements from v1.4.0 move into the new Settings pages, and the Coach consent is now
+version 3.
+
 ## v1.4.0 — 2026-10-07
 
 Body measurements. Log waist, hips, chest and six other tape sites next to body weight, with a
