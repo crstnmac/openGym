@@ -1342,6 +1342,9 @@ export const PT_BR_OVERRIDES = {
   'Uploaded to Strava': 'Enviado para o Strava',
   'Uploading…': 'Enviando…',
   '{0} workouts uploaded. Disconnecting only forgets the connection here; it does not touch other apps on your Strava account.': '{0} treinos enviados. Desconectar só esquece a conexão aqui; os outros apps da sua conta do Strava não são afetados.',
+  'Enter how long it took — at least 1 minute.': 'Informe quanto tempo levou — pelo menos 1 minuto.',
+  'clubbell': 'clubbell',
+  'macebell': 'macebell',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }
