@@ -51,10 +51,13 @@ describe('custom exercise detail', () => {
     expect(host.querySelector('h3').textContent).toBe('Landmine row')
   })
 
-  it('does not offer Edit or Delete for a catalogue exercise', () => {
+  // Built-ins are overridable and hideable since #259 (lib/exercises.js overlay), but never
+  // deletable: the catalogue itself is not the user's to remove.
+  it('offers Edit and Hide, never Delete, for a catalogue exercise', () => {
     exerciseDetailSheet(EXDB[0])
     const labels = buttonText(renderTop())
-    expect(labels).not.toContain('Edit')
+    expect(labels).toContain('Edit')
+    expect(labels).toContain('Hide')
     expect(labels).not.toContain('Delete')
   })
 })
