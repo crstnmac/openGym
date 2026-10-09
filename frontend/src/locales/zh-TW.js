@@ -2078,4 +2078,6 @@ export default {
   'Uploaded to Strava': '已上傳到 Strava',
   'Uploading…': '上傳中…',
   '{0} workouts uploaded. Disconnecting only forgets the connection here; it does not touch other apps on your Strava account.': '已上傳 {0} 次訓練。中斷連線只會忘記此處的連線，不會影響你 Strava 帳號中的其他應用程式。',
+  'clubbell': '棍鈴',
+  'macebell': '錘鈴',
 }
