@@ -40,6 +40,7 @@ import BackupFolderRow, { useBackupFolder, autoBackupSubtitle } from '../compone
 import { ServerSyncSection, KeptChangesRows, leaveServer, connectServer, passkeySignIn } from '../components/ServerSync.jsx'
 import { passwordOn, PasswordRow, openPasswordSignIn, openPasswordRegister } from '../components/PasswordAuth.jsx'
 import { usePasskeys, PasskeysRow, DeviceLinkRow, openDeviceLinkRedeem } from '../components/Passkeys.jsx'
+import { StravaCard } from '../components/Strava.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField, SearchField, MultiSelectRow } from '../components/ui.jsx'
 import { PAGES, ROOT_GROUPS, pageVisible, searchSettings, pageTrail } from './settings-pages.js'
 
@@ -783,6 +784,9 @@ export default function Settings({ page = null, find = null, via = null }) {
           subtitle={t('Pull your history with a Hevy Pro API key')}
           accessory="chevron" onClick={importFromHevy} />
       </Section>
+      {/* Strava: send finished workouts out (components/Strava.jsx). Renders nothing unless the
+          server has STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET set and the profile is signed in. */}
+      {!DEMO && <StravaCard />}
       {hasMedia && <Section><MediaRow /></Section>}
       <Section>
         {(S.deletedEx?.length > 0) && <Row icon="reset" iconTint="var(--grey)" title={t('Manage hidden exercises')}
