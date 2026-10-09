@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.2 — 2026-10-09
+
+Body fat: tape (U.S. Navy, starting from your latest neck, waist and hips), caliper and manual
+readings, with a card on Home and Stats that you switch on in Settings. Health Connect on Android,
+write-only and off until you turn it on, for finished workouts and weigh-ins (#371). Rest-over
+sounds per kind of rest and timed exercises that run themselves (#165), optional multi-week
+programmes (#91), and a run of fixes (#401, #403, #409, #388, #414, #423, #425, #480).
+
 ## v1.4.1 — 2026-10-09
 
 The fork caught up with upstream (v1.3.10 to v1.3.12: the new design, Settings on sub-pages,
