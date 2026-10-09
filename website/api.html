@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- GENERATED FILE - do not edit by hand.
-     Built by scripts/build-api-docs.mjs from api/openapi.yaml (openGym API v1.3.10).
+     Built by scripts/build-api-docs.mjs from api/openapi.yaml (openGym API v1.4.1).
      Regenerate with: node scripts/build-api-docs.mjs -->
 <html lang="en">
 <head>
@@ -219,6 +219,7 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   <a class="side-link" href="#push"><b>Push</b><span>Notifications &amp; rest timer</span></a>
   <a class="side-link" href="#activity"><b>Activity</b><span>Live presence</span></a>
   <a class="side-link" href="#media"><b>Media</b><span>Photos &amp; videos of your exercises &amp; workouts</span></a>
+  <a class="side-link" href="#strava"><b>Strava</b><span>Upload workouts as activities</span></a>
   <a class="side-link" href="#coach"><b>AI Coach</b><span>Plans, reviews, debriefs</span></a>
   <a class="side-link" href="#admin"><b>Admin</b><span>Users, invites, audit log, Coach</span></a>
   <a class="side-link" href="#schemas"><b>Schemas</b><span>The state blob, the error shape &amp; co.</span></a>
@@ -242,8 +243,8 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </div>
   <p class="api-facts">
     <span>OpenAPI 3.1.0</span>
-    <span>openGym v1.3.10</span>
-    <span>69 endpoints</span>
+    <span>openGym v1.4.1</span>
+    <span>78 endpoints</span>
     <span>AGPL-3.0-or-later</span>
   </p>
 
@@ -2052,6 +2053,177 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   </div>
 </section>
 
+<section class="api-sec" id="strava">
+  <h2>Strava</h2>
+  <p class="sub">Upload finished workouts to Strava (optional, STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET)</p>
+  <div class="eps">
+
+<details class="ep" id="op-stravaStatus">
+  <summary>
+    <span class="m get">GET</span>
+    <span class="ep-path"><code>/api/strava/status</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Whether Strava is configured on this instance and connected for the caller</span>
+  </summary>
+  <div class="ep-body">
+
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc"><code>configured</code>, <code>connected</code>, and when connected <code>athlete</code>, <code>auto</code>, <code>uploads</code>, <code>needsReconnect</code>, <code>lastError</code>.</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">Not signed in.</span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-stravaConnect">
+  <summary>
+    <span class="m get">GET</span>
+    <span class="ep-path"><code>/api/strava/connect</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Start the Strava sign-in (redirects to Strava's consent screen, scope activity:write)</span>
+  </summary>
+  <div class="ep-body">
+
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s3">302</span>
+    <span class="p-desc">To Strava, or back to Settings when signed out or Strava is not configured.</span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-stravaCallback">
+  <summary>
+    <span class="m get">GET</span>
+    <span class="ep-path"><code>/api/strava/callback</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Strava's OAuth redirect target; stores the tokens and returns to Settings</span>
+  </summary>
+  <div class="ep-body">
+<p>The <code>state</code> must have been issued to the signed-in caller. Redirects to <code>/#/settings?strava=connected|denied|scope|error</code>.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s3">302</span>
+    <span class="p-desc">Back to Settings.</span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-stravaSettings">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/strava/settings</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Turn automatic upload of newly finished workouts on or off</span>
+  </summary>
+  <div class="ep-body">
+
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+<p class="ep-h">Request body <span class="p-hint">(JSON)</span></p><div class="ptab">
+  <div class="prow">
+    <span class="p-name">auto</span>
+    <span class="p-type">boolean</span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">Saved.</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">409</span>
+    <span class="p-desc">Strava is not connected.</span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-stravaUpload">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/strava/upload</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Upload one synced workout to Strava now</span>
+  </summary>
+  <div class="ep-body">
+
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+<p class="ep-h">Request body <span class="p-hint">(JSON)</span></p><div class="ptab">
+  <div class="prow">
+    <span class="p-name">id<em class="p-req" title="required">required</em></span>
+    <span class="p-type">string</span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc"><code>activity</code> is the Strava activity id; <code>already</code> when it had been uploaded before.</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">404</span>
+    <span class="p-desc">The workout is not in the synced profile yet.</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">409</span>
+    <span class="p-desc">Strava is not connected.</span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s5">502</span>
+    <span class="p-desc">Strava refused; <code>reconnect</code> is true when the tokens are no longer valid.</span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-stravaDisconnect">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/strava/disconnect</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Forget the Strava tokens on this server (does not revoke the app on Strava)</span>
+  </summary>
+  <div class="ep-body">
+
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Requires a session: the cookie set at sign-in, or <code>Authorization: Bearer &lt;token&gt;</code> from mobile-app pairing.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">Forgotten.</span>
+  </div>
+    </div>
+  </div>
+</details>
+  </div>
+</section>
+
 <section class="api-sec" id="coach">
   <h2>AI Coach</h2>
   <p class="sub">AI Coach: plans, reviews and debriefs. Every route here answers 503 unless the instance has the Coach switched on and a provider connected.</p>
@@ -3143,6 +3315,102 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
     </div>
   </div>
 </details>
+
+<details class="ep" id="op-postAdminCoachCodexLogin">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/admin/coach/codex-login</code><span class="ep-chip admin">admin</span></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Start a ChatGPT sign-in for the Codex provider</span>
+  </summary>
+  <div class="ep-body">
+<p>Runs <code>codex login --device-auth</code> inside the api container and returns the link and one-time code it printed. The admin approves the code on OpenAI's own page; the CLI writes its refreshable login cache to <code>/coach-auth</code> and the credential is filed as type <code>chatgpt-cli</code>. The tokens never pass through this server. If a sign-in is already pending, that one is returned. Needs the <code>coach</code> api image.</p>
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Admin only: a signed-in session whose user is an admin (<code>ADMIN_UIDS</code> or <code>admin:true</code>), as the session cookie or a Bearer token.</span></p>
+
+<p class="ep-h">Request body <span class="p-hint">(JSON)</span> <span class="p-hint">(optional)</span></p><div class="ptab">
+  <div class="prow">
+    <span class="p-name">account</span>
+    <span class="p-type">string</span>
+    <span class="p-desc">Label for whose ChatGPT account this is — shown on the admin card and the Coach screen.</span>
+  </div>
+</div>
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">The sign-in's state; <code>url</code> and <code>code</code> are set once the CLI has printed them.<span class="r-sig"><a href="#schema-CodexLoginStatus">CodexLoginStatus</a></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">403</span>
+    <span class="p-desc">Signed in, but not an admin. The attempt is recorded in the audit log.<span class="r-sig"><code>{&quot;error&quot;:&quot;forbidden&quot;}</code></span></span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-getAdminCoachCodexLogin">
+  <summary>
+    <span class="m get">GET</span>
+    <span class="ep-path"><code>/api/admin/coach/codex-login</code><span class="ep-chip admin">admin</span></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Poll the ChatGPT sign-in for the Codex provider</span>
+  </summary>
+  <div class="ep-body">
+
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Admin only: a signed-in session whose user is an admin (<code>ADMIN_UIDS</code> or <code>admin:true</code>), as the session cookie or a Bearer token.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">The sign-in's state — <code>done</code> once the credential is filed.<span class="r-sig"><a href="#schema-CodexLoginStatus">CodexLoginStatus</a></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">403</span>
+    <span class="p-desc">Signed in, but not an admin. The attempt is recorded in the audit log.<span class="r-sig"><code>{&quot;error&quot;:&quot;forbidden&quot;}</code></span></span>
+  </div>
+    </div>
+  </div>
+</details>
+
+<details class="ep" id="op-postAdminCoachCodexLoginCancel">
+  <summary>
+    <span class="m post">POST</span>
+    <span class="ep-path"><code>/api/admin/coach/codex-login/cancel</code><span class="ep-chip admin">admin</span></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum">Cancel a pending ChatGPT sign-in</span>
+  </summary>
+  <div class="ep-body">
+
+    <p class="ep-auth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span>Admin only: a signed-in session whose user is an admin (<code>ADMIN_UIDS</code> or <code>admin:true</code>), as the session cookie or a Bearer token.</span></p>
+
+
+    <p class="ep-h">Responses</p>
+    <div class="ptab">
+  <div class="prow rrow">
+    <span class="r-code s2">200</span>
+    <span class="p-desc">The sign-in's state after cancelling (<code>cancelled</code>, or whatever it already was).<span class="r-sig"><a href="#schema-CodexLoginStatus">CodexLoginStatus</a></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">401</span>
+    <span class="p-desc">No session, expired/revoked session, or a disabled account.<span class="r-sig"><code>{&quot;error&quot;:&quot;not signed in&quot;}</code></span></span>
+  </div>
+  <div class="prow rrow">
+    <span class="r-code s4">403</span>
+    <span class="p-desc">Signed in, but not an admin. The attempt is recorded in the audit log.<span class="r-sig"><code>{&quot;error&quot;:&quot;forbidden&quot;}</code></span></span>
+  </div>
+    </div>
+  </div>
+</details>
   </div>
 </section>
 
@@ -3193,6 +3461,44 @@ main.api-main .lead { color: var(--fg-2); max-width: 58ch; margin: 14px 0 0; fon
   <div class="prow">
     <span class="p-name">ok</span>
     <span class="p-type">always true</span>
+    <span class="p-desc"></span>
+  </div>
+</div>
+  </div>
+</details>
+
+<details class="ep sch" id="schema-CodexLoginStatus">
+  <summary>
+    <span class="sch-name"><code>CodexLoginStatus</code></span>
+    <span class="ep-chev" aria-hidden="true"></span>
+    <span class="ep-sum"></span>
+  </summary>
+  <div class="ep-body">
+
+<div class="ptab">
+  <div class="prow">
+    <span class="p-name">status<em class="p-req" title="required">required</em></span>
+    <span class="p-type">&quot;idle&quot; | &quot;pending&quot; | &quot;done&quot; | &quot;failed&quot; | &quot;cancelled&quot;</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">url</span>
+    <span class="p-type">string | null</span>
+    <span class="p-desc">OpenAI's verification page, once printed.</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">code</span>
+    <span class="p-type">string | null</span>
+    <span class="p-desc">The one-time code to enter there (expires in 15 minutes).</span>
+  </div>
+  <div class="prow">
+    <span class="p-name">error</span>
+    <span class="p-type">string | null</span>
+    <span class="p-desc"></span>
+  </div>
+  <div class="prow">
+    <span class="p-name">startedAt</span>
+    <span class="p-type">string <span class="p-hint">(date-time)</span></span>
     <span class="p-desc"></span>
   </div>
 </div>
