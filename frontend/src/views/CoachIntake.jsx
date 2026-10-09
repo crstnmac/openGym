@@ -16,7 +16,7 @@ import { t } from '../lib/i18n.js'
 import { DAYN } from '../lib/format.js'
 import { EXDB } from '../lib/exercises.js'
 import { emptyCoach, coachAvailable, hasConsent, CONSENT_VERSION, CATEGORY_TEXT, appendChat } from '../lib/coach.js'
-import { requestPlan, disclosure } from '../lib/coach-api.js'
+import { requestPlan, disclosure, JOB_ERRORS } from '../lib/coach-api.js'
 import { DEMO } from '../lib/demo.js'
 import { MOBILE } from '../lib/mobile.js'
 import Icon from '../components/Icon.jsx'
@@ -61,7 +61,11 @@ export default function CoachIntake() {
   const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
   const [needConsent] = useState(() => !editing && !hasConsent(S))
-  const STEPS = [...(needConsent ? ['consent'] : []), 'goal', 'experience', 'body', 'days', 'length', 'equipment', 'limits', 'extras']
+  // An athlete who already answered the intake and only lacks the CURRENT consent (the wording
+  // changed and CONSENT_VERSION moved) reads the new terms and goes back to the Coach. Without
+  // this the redirect from the chat replayed all seven questions and ended in a new plan request.
+  const [reconsentOnly] = useState(() => !editing && !hasConsent(S) && !!S.coach?.profile)
+  const STEPS = reconsentOnly ? ['consent'] : [...(needConsent ? ['consent'] : []), 'goal', 'experience', 'body', 'days', 'length', 'equipment', 'limits', 'extras']
   const [step, setStep] = useState(0)
   const [busy, setBusy] = useState(false)
   const [p, setP] = useState(() => ({
@@ -89,7 +93,8 @@ export default function CoachIntake() {
 
   const agree = () => {
     update(s => { s.coach = { ...(s.coach || emptyCoach()), consent: { agreedAt: new Date().toISOString(), version: CONSENT_VERSION } } })
-    setStep(step + 1)
+    if (reconsentOnly) nav('/coach', { replace: true })
+    else setStep(step + 1)
   }
 
   const finish = async () => {
@@ -117,7 +122,10 @@ export default function CoachIntake() {
     try {
       await requestPlan(profile)
       nav('/coach', { replace: true })
-    } catch (e) { toast(e.message || t('Could not ask the Coach')); setBusy(false) }
+    } catch (e) {
+      // The server's refusal is English with its class beside it; the class picks the line.
+      toast(JOB_ERRORS[e.data?.code] || e.message || t('Could not ask the Coach')); setBusy(false)
+    }
   }
 
   const toggleDay = d => set({
@@ -223,9 +231,9 @@ export default function CoachIntake() {
         <p className="ob-p">{t('Injuries, joints that complain, movements you cannot do, or practical limits like training at 6am in a flat.')}</p>
         <div className="ob-field">
           <TextArea rows={4} maxLength={600} value={p.limitations} onChange={e => set({ limitations: e.target.value })}
-            placeholder={t('e.g. “dodgy left shoulder — no barbell overhead press”')} />
+            placeholder={t('e.g. “dodgy left shoulder, no barbell overhead press”')} />
         </div>
-        <div className="ob-note warn">{t('If something actually hurts, see a professional — the Coach will program conservatively but it cannot diagnose anything.')}</div>
+        <div className="ob-note warn">{t('If something actually hurts, see a professional. The Coach will program conservatively, but it can’t diagnose anything.')}</div>
       </>}
 
       {key === 'extras' && <>
@@ -265,7 +273,7 @@ function Consent({ onAgree, onDecline }) {
   const [info, setInfo] = useState(null)
   useEffect(() => { disclosure().then(setInfo).catch(() => {}) }, [])
   const who = info?.payer === 'you'
-    ? t('Sent straight to {0} with your own API key — you pay for every request.', info.host || info.providerLabel)
+    ? t('Sent straight to {0} with your own API key. You pay for every request.', info.host || info.providerLabel)
     : t('Sent to {0}, running on this server under the instance owner’s account.', info?.providerLabel || config?.coach?.providerLabel || t('the configured AI provider'))
   return <>
     <div className="ob-eyebrow">{t('Before we start')}</div>
@@ -284,7 +292,7 @@ function Consent({ onAgree, onDecline }) {
       <div style={{ color: 'var(--yellow)' }}>{t('The Coach is not a doctor or a physiotherapist. If something hurts, ask a professional.')}</div>
     </div>
     <div className="ob-foot" style={{ flexDirection: 'column' }}>
-      <Button variant="primary" onClick={onAgree}>{t('I understand — let’s go')}</Button>
+      <Button variant="primary" onClick={onAgree}>{t('I understand, let’s go')}</Button>
       <Button onClick={onDecline}>{t('Not now')}</Button>
     </div>
   </>
