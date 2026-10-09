@@ -2027,4 +2027,7 @@ export default {
   'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': '各組從 {0} 開始。每組都達到目標次數時，第一組加重，其餘各組隨之調整。',
   'The first set goes up when every set reaches its reps, and the rest follow it.': '每組都達到目標次數時，第一組加重，其餘各組隨之調整。',
   'All sets at the same weight.': '所有組使用相同重量。',
+  'estimated': '估計',
+  '{0} rated · {1} estimated of {2} sets': '{0} 組已評分 · {2} 組中 {1} 組為估計',
+  'Effort per set is switched off — turn it on in Settings to keep rating.': '每組強度評分已關閉，請到設定中開啟以繼續評分。',
 }

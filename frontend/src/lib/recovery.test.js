@@ -27,7 +27,6 @@ import {
 import { EXDB, registerCustom } from './exercises.js'
 import { MUSCLES, exerciseMuscleSnapshot, musclesOf } from './muscles.js'
 import { fatigueStateOf } from './recovery-view.js'
-import { weightedEstimate } from './onerm.js'
 
 const HOUR = 60 * 60 * 1000
 const DAY = 24 * HOUR
@@ -56,16 +55,8 @@ const workoutAt = (id, start, sets = [{ done: true }]) => ({
   start,
   entries: [{ id, sets: sets.map(set => ({ ...set })) }],
 })
-<<<<<<< HEAD
-// Weighted-mean anchor (onerm.js) for the 80 × 8 fixture sets, and the intensity-weighted
-// tonnage of one such set — its own blended 1RM implies intensity 80/ANCHOR.
-const ANCHOR_80x8 = weightedEstimate(80, 8)
-const V = 640 * (80 / ANCHOR_80x8) ** 1.5
-
-=======
 // One completed set at the entry's own best load scores exactly 1 effective set;
 // a full session of FATIGUE_SETS_PER_UNIT such sets is the 1.0 raw unit.
->>>>>>> refs/remotes/upstream-pr/436
 const doneWorkoutAt = (id, start, count = 1) =>
   workoutAt(id, start, Array.from({ length: count }, () => ({ done: true, w: 80, r: 8 })))
 const zeroFatigue = () => Object.fromEntries(MUSCLES.map(slug => [slug, 0]))
@@ -140,22 +131,11 @@ describe('fatigueOf and strengthOf', () => {
     // one set (whatever the load) never crosses the fatigued threshold
     expect(fatiguedMuscles(workouts, NOW)).toEqual([])
 
-<<<<<<< HEAD
-    // pure volume: a very high-rep set at medium weight registers real tonnage. At 50 reps the
-    // weighted estimate refuses to guess (beyond WEIGHTED_REP_CAP), so no session anchor is
-    // formed and the set counts as raw, unweighted stimulus — honest rather than scaled by a
-    // fantasy 1RM.
-    const highRep = [doneWorkoutAt(SINGLE.id, NOW, 1)]
-    highRep[0].entries[0].sets[0].w = 50
-    highRep[0].entries[0].sets[0].r = 50
-    const weighted = 2500
-=======
     // set count, not reps or load, drives fatigue: a 50-rep grinder scores exactly
     // like the plain 80x8 set - one set is one set.
     const highRep = [doneWorkoutAt(SINGLE.id, NOW, 1)]
     highRep[0].entries[0].sets[0].w = 50
     highRep[0].entries[0].sets[0].r = 50
->>>>>>> refs/remotes/upstream-pr/436
     expect(fatigueOf(highRep, NOW)[SINGLE_SLUG]).toBeCloseTo(
       fatigueOf([doneWorkoutAt(SINGLE.id, NOW)], NOW)[SINGLE_SLUG],
       10,
@@ -548,17 +528,10 @@ describe('warm-up flag in strength and fatigue', () => {
   })
 })
 
-<<<<<<< HEAD
-describe('drop-set drops add fatigue tonnage on top of the main set', () => {
-  // Same within-session weighted-mean anchor setTonnage derives from the row's own w/r (8 reps),
-  // so a drop is weighted against the same 1RM as the main set.
-  const oneRm = ANCHOR_80x8
-=======
 describe('drop-set drops add discounted fatigue sets on top of the main set', () => {
   // The drop carries its own (lighter) load against the 90-day anchor: a 60 kg drop
   // after an 80 kg top set reads RIR 10 and costs the floor weight on top of the full set.
   const dropShare = FATIGUE_RIR_FLOOR_WEIGHT
->>>>>>> refs/remotes/upstream-pr/436
 
   it('a drop-set drop adds its own RIR-weighted sets', () => {
     const dropRow = { done: true, type: 'dropset', w: 80, r: 8, drops: [{ w: 60, r: 6 }] }

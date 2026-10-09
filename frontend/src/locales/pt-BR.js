@@ -1293,6 +1293,7 @@ export const PT_BR_OVERRIDES = {
   'Preview of the image to share': 'Prévia da imagem para compartilhar',
   'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': 'As séries começam em {0}. A primeira série sobe quando todas as séries atingem suas repetições, e as demais acompanham.',
   'The first set goes up when every set reaches its reps, and the rest follow it.': 'A primeira série sobe quando todas as séries atingem suas repetições, e as demais acompanham.',
+  'Effort per set is switched off — turn it on in Settings to keep rating.': 'O esforço por série está desativado. Ative em Configurações para continuar avaliando.',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

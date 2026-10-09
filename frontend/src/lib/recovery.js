@@ -1,4 +1,5 @@
 import { EXIDX, isAssisted } from './exercises.js'
+import { workoutAt } from './history.js'
 import { MUSCLES, musclesOf } from './muscles.js'
 import { isWarmupRow, dropsOf, isSideSet } from './workout-model.js'
 import { estimate1RM, REP_CAP } from './onerm.js'
@@ -90,7 +91,7 @@ export function halfLifeDecay(ageMs, halfLifeMs) {
 // The v2 data contract has one timestamp per workout, not per set. Keep this fallback in one
 // place so fatigue and strength use exactly the same stimulus time as effort.js.
 function workoutTimestamp(workout) {
-  const timestamp = workout?.start || new Date(workout?.d).getTime()
+  const timestamp = workoutAt(workout)
   return Number.isFinite(timestamp) ? timestamp : Number(timestamp)
 }
 
