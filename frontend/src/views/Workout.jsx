@@ -1221,7 +1221,7 @@ function ActiveWorkout() {
   }
   const blockProps = idx => ({
     editing,
-    onSwap: () => swapActiveWorkoutExercise(idx),
+    onSwap: () => swapExercise(idx),
     onMoveUp: () => moveUnitAt(idx, -1, true),
     onMoveDown: () => moveUnitAt(idx, 1, true),
     canMoveUp: canMoveActiveWorkoutEntry(A, idx, -1),
