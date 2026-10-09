@@ -2501,6 +2501,13 @@ describe('workout controls: the more menu and the set menu', () => {
     await act(async () => { tick.dispatchEvent(new dom.Event('click', { bubbles: true })) })
     expect(mocks.S.active.entries[1].sets.filter(set => set.done)).toHaveLength(1)
     expect(mocks.S.active.cur).toBe(2)
+
+  it('adds an in-session warm-up at the bar, never under it', async () => {
+    const bench = exercise('0025', [false], { target: { mode: 'reps', reps: 10, weight: 55 }, sets: [{ w: 55, r: 10, done: false }] })
+    await mount([bench], 0, { unit: 'lb' })
+    await act(async () => { container.querySelector('button[aria-label="More"]').dispatchEvent(new dom.Event('click', { bubbles: true })) })
+    await act(async () => { item('Add warm-up set').onClick() })
+    expect(mocks.S.active.entries[0].sets.map(s => s.w)).toEqual([45, 55])
   })
 
   it('opens the exercise history sheet from the More menu, for the tapped exercise', async () => {
