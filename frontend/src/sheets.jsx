@@ -58,6 +58,7 @@ import { editCompletedSession, editLeftEmpty, editedRecord, editChangesNothing }
 import { stampWorkout } from './lib/sync-merge.js'
 import { weeklyWeights } from './lib/bodyweight.js'
 import { measureName } from './lib/measure-names.js'
+import { navyBodyFatPct, jp3BodyFatPct, jp3SitesFor, clampBodyFatPct, recordBodyFat, removeBodyFat, tapeFromMeasures } from './lib/bodyfat.js'
 import { SITES, lengthUnitOf, trackedSites, toDisplay, fromDisplay, validLength, recordMeasures, removeMeasure, latestOf } from './lib/measurements.js'
 import { workoutText } from './lib/workout-text.js'
 import { workoutCardModel, layoutWorkoutCard, drawWorkoutCard, viewAspect, CARD_FONT } from './lib/workout-card.js'
@@ -476,6 +477,91 @@ function Measures() {
   </>
 }
 export const measuresSheet = () => ui().openSheet(close => <Measures close={close} />)
+
+/* ============================ body fat ============================ */
+// Three ways in (lib/bodyfat.js): a tape reading (U.S. Navy, from the neck, waist and hips in the
+// measurements, which it fills in and, saved, writes back as today's), a three-site caliper reading
+// (Jackson-Pollock) or a number typed from a scale or a scan. Age and height are asked for here the
+// first time a method needs them and kept on the profile.
+const BF_SITE_LABEL = {
+  chest: () => t('Chest'), abdomen: () => t('Abdomen'), thigh: () => t('Thigh'),
+  triceps: () => t('Triceps'), suprailiac: () => t('Suprailiac'),
+}
+function BodyFatSheet({ close }) {
+  const st = useStore(s => s.S)
+  const lu = lengthUnitOf(st)
+  const female = st.body === 'female'
+  const [method, setMethod] = useState('navy')
+  const [age, setAge] = useState(st.age || null)
+  const [height, setHeight] = useState(st.height || null)
+  const startTape = tapeFromMeasures(st.measures)
+  const show = cm => (cm != null ? toDisplay(cm, lu) : null)
+  const [tape, setTape] = useState({ neck: show(startTape.neck), waist: show(startTape.waist), hip: show(startTape.hip) })
+  const [folds, setFolds] = useState({})
+  const [manual, setManual] = useState(null)
+  const cm = n => (n > 0 ? fromDisplay(Number(n), lu) : null)
+  const tapeCm = { neck: cm(tape.neck), waist: cm(tape.waist), hip: cm(tape.hip) }
+  const pct = method === 'navy' ? navyBodyFatPct(tapeCm, height, st.body, 'cm')
+    : method === 'jp3' ? jp3BodyFatPct(folds, age, st.body)
+    : clampBodyFatPct(manual)
+  const recent = [...(st.bodyfat || [])].reverse().slice(0, 3)
+  const save = () => {
+    if (pct == null) { toast(t('Enter a valid reading')); return }
+    update(s => {
+      recordBodyFat(s, pct, method)
+      if (age > 0) s.age = Math.round(age)
+      if (height > 0) s.height = Math.round(height)
+      // The tape's numbers are measurements too: kept as today's, so the two never disagree.
+      if (method === 'navy') recordMeasures(s, Object.fromEntries(Object.entries({ neck: tapeCm.neck, waist: tapeCm.waist, hips: female ? tapeCm.hip : null }).filter(([, v]) => v)))
+    })
+    close()
+    toast(t('Body fat saved'))
+  }
+  const num = (label, value, set, unit, extra = {}) => <label className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)', gap: 12 }}>
+    <span>{label}</span>
+    <span className="row" style={{ gap: 6 }}>
+      <NumberField decimal nullable value={value ?? ''} placeholder="–" aria-label={label + (unit ? ' (' + unit + ')' : '')}
+        className="field" onChange={set} style={{ width: '5.5em', textAlign: 'right', padding: '8px 10px', minHeight: 40 }} {...extra} />
+      <span className="muted small">{unit}</span>
+    </span>
+  </label>
+  return <>
+    <h3>{t('Log body fat')}</h3>
+    <Segmented className="seg-range" value={method} onChange={setMethod}
+      options={[{ value: 'navy', label: t('Tape') }, { value: 'jp3', label: t('Caliper') }, { value: 'manual', label: t('Manual') }]} />
+    <div className="list" style={{ gap: 0, marginTop: 10 }}>
+      {method === 'navy' && <>
+        {num(t('Neck'), tape.neck, v => setTape(x => ({ ...x, neck: v })), lu)}
+        {num(t('Waist'), tape.waist, v => setTape(x => ({ ...x, waist: v })), lu)}
+        {female && num(t('Hips'), tape.hip, v => setTape(x => ({ ...x, hip: v })), lu)}
+        {num(t('Height (cm)'), height, setHeight, '')}
+        <div className="muted small" style={{ marginTop: 6 }}>{t('Starts from your latest tape measurements. Saved with today’s measurements.')}</div>
+      </>}
+      {method === 'jp3' && <>
+        {jp3SitesFor(st.body).map(k => num(BF_SITE_LABEL[k](), folds[k], v => setFolds(x => ({ ...x, [k]: v })), 'mm'))}
+        {num(t('Age'), age, setAge, '', { decimal: false })}
+      </>}
+      {method === 'manual' && num(t('Body fat'), manual, setManual, '%')}
+    </div>
+    <div className="row between" style={{ margin: '12px 2px' }}>
+      <span className="muted">{method === 'manual' ? t('Body fat') : t('Estimated body fat')}</span>
+      <b style={{ fontSize: '1.2rem' }}>{pct != null ? fmtNum(pct) + ' %' : '–'}</b>
+    </div>
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+    {recent.length > 0 && <>
+      <h4 className="sec">{t('Recent readings')}</h4>
+      <div className="list" style={{ gap: 0 }}>
+        {recent.map(b => <div key={b.d} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <span className="small muted">{fmtDate(b.d, true)}</span>
+          <span className="row" style={{ gap: 12 }}><b>{fmtNum(b.pct)} %</b>
+            <button className="iconbtn" style={{ width: 32, height: 30, borderRadius: 8, fontSize: 15, color: 'var(--red)' }}
+              onClick={() => update(s => { removeBodyFat(s, b.d) })} aria-label={t('Delete')}><Icon name="trash" /></button></span>
+        </div>)}
+      </div>
+    </>}
+  </>
+}
+export const bodyFatSheet = () => ui().openSheet(close => <BodyFatSheet close={close} />)
 
 /* ============================ import from another app ============================ */
 // "12 sets bring an RPE with them": the file rated its sets. The column is off by default, so

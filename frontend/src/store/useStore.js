@@ -86,7 +86,7 @@ const gainedWorkoutMedia = (prev, next) => {
 export const DEF = {
   unit: 'kg', restSec: 90, restPauseSec: 15, sound: true, soundOnSilent: false, vibrateOnSilent: false, timerFlash: false, timedSetOvertime: false, keepAwake: true, lang: 'en',
   theme: 'dark', accent: 'lime', body: 'male', targetW: null,
-  bodyweight: [], measures: [], routines: [], week: {}, dayPlan: {},
+  bodyweight: [], measures: [], bodyfat: [], routines: [], week: {}, dayPlan: {},
   queue: null,   // a planner's floating week (lib/queue.js) — via the API, or by this rotation feature (below)
   // The in-app rotation's reusable definition — { id, sequence, label } (lib/rotation.js). Never
   // a live queue: it only ever feeds `queue`, and `queue.rotationId` says the pass is managed here.
@@ -183,6 +183,10 @@ export const DEF = {
   showWeightCard: true,
   // The same for the body-measurements card, on Home and Stats (components/MeasureCard.jsx).
   showMeasureCard: true,
+  // The body-fat card on Home and Stats (components/BodyFatCard.jsx, lib/bodyfat.js). Off until the
+  // person switches it on in Settings: most people never measure it. Age and height (cm) are asked
+  // for in the log sheet, the first time a method needs them.
+  showBodyFatCard: false, age: null, height: null,
   // Whether Start opens the quick weigh-in first (sheets.jsx startFlow, issue #137). Off starts
   // the session straight away; weight can still be logged from Home/Stats. On here, so an
   // older profile without the key reads as on (`!== false`) and keeps the step it had; a profile
@@ -280,7 +284,7 @@ function loadState() {
 // weigh-ins and custom exercises. A custom exercise is all a new guest may have made — with its
 // photo or video, which the server counts as unreferenced until the state that names it lands —
 // so a profile created from such a copy takes it at once, like one holding a workout.
-const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length || (st.measures || []).length || (st.customEx || []).length)
+const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length || (st.measures || []).length || (st.bodyfat || []).length || (st.customEx || []).length)
 
 // Decide whether a pulled account state may replace the local saved state. A local active workout
 // is deliberately carried forward: the server stores completed/saved state, while the in-progress
@@ -1226,7 +1230,7 @@ export const useStore = create((set, get) => {
   // A copy's workouts, weigh-ins and custom exercises split by the names a sign-in recorded when it
   // began (`pre`, see setUser): `before` holds what was there then, `later` — null when nothing
   // is — what was logged since, with the custom exercises its workouts use, in this copy's unit.
-  const ADOPT_FIELDS = ['workouts', 'bodyweight', 'measures', 'customEx']
+  const ADOPT_FIELDS = ['workouts', 'bodyweight', 'measures', 'bodyfat', 'customEx']
   const splitByPre = (S, pre) => {
     const before = { ...S }
     const later = { _ts: S._ts, unit: S.unit, ...(S.unitSet ? { unitSet: S.unitSet } : {}) }

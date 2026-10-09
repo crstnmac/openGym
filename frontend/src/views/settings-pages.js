@@ -107,6 +107,7 @@ export const SEARCH = [
   { page: 'look', title: 'Gym check-in', icon: 'qr', tint: 'var(--blue)', kw: 'qr code membership card check in barcode' },
   { page: 'look', title: 'Body weight', icon: 'scale', tint: 'var(--green)', kw: 'weight card home' },
   { page: 'look', title: 'Measurements', icon: 'ruler', tint: 'var(--purple)', kw: 'measurements card home stats waist hips tape' },
+  { page: 'look', title: 'Body fat', icon: 'scale', tint: 'var(--teal)', kw: 'body fat percentage bf caliper navy tape card home stats' },
   { page: 'look', title: 'Show connection status', icon: 'cloud', tint: 'var(--blue)', kw: 'sync offline banner bar connection', when: c => !c.demo },
   // Data & backup
   { page: 'data', title: 'Export backup (JSON)', icon: 'share', tint: 'var(--blue)', kw: 'export backup json download save' },

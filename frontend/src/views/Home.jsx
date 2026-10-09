@@ -4,8 +4,9 @@ import { useStore } from '../store/useStore.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, isoOf, weekStartOf, weekDayOffset, DAYS, DAYN } from '../lib/format.js'
 import { t, tn, dateLocale } from '../lib/i18n.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, weighInsSheet, measureSheet, measuresSheet } from '../sheets.jsx'
+import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, weighInsSheet, measureSheet, measuresSheet, bodyFatSheet } from '../sheets.jsx'
 import MeasureCard from '../components/MeasureCard.jsx'
+import BodyFatCard from '../components/BodyFatCard.jsx'
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import QueueRow from '../components/QueueRow.jsx'
@@ -223,6 +224,7 @@ export default function Home() {
     </div>}
 
     {S.showMeasureCard !== false && <MeasureCard S={S} h={130} onLog={() => measureSheet()} onAll={() => measuresSheet()} />}
+    {S.showBodyFatCard === true && <BodyFatCard S={S} onLog={() => bodyFatSheet()} />}
 
     <div className="card tappable" style={{ cursor: 'pointer' }} {...tappable(() => calendarSheet())}>
       <div className="row between">

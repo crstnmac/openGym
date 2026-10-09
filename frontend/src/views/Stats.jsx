@@ -6,8 +6,9 @@ import { lastBW, streakWeeks, setLabel, modeOf, effortOf, entriesForExercise, me
 import { fmtNum, fmtDate, fmtVol, todayISO, isoOf, weekKey, weekStartOf, exerciseNameText } from '../lib/format.js'
 import { speedUnitOf, speedLabel, toSpeed } from '../lib/speed.js'
 import { t, exerciseNameFor, exerciseNameClass, getLang } from '../lib/i18n.js'
-import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, exerciseHistorySheet, WorkoutRow, bwDeltaColor, weighInsSheet, measureSheet, measuresSheet } from '../sheets.jsx'
+import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, exerciseHistorySheet, WorkoutRow, bwDeltaColor, weighInsSheet, measureSheet, measuresSheet, bodyFatSheet } from '../sheets.jsx'
 import MeasureCard from '../components/MeasureCard.jsx'
+import BodyFatCard from '../components/BodyFatCard.jsx'
 import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
@@ -651,6 +652,7 @@ export default function Stats() {
       </div>
 
       {S.showMeasureCard !== false && <MeasureCard S={S} onLog={() => measureSheet()} onAll={() => measuresSheet()} />}
+      {S.showBodyFatCard === true && <BodyFatCard S={S} onLog={() => bodyFatSheet()} />}
 
       <div className="card">
         <h2>{t('Exercise progress')}</h2>

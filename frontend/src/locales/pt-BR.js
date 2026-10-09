@@ -1361,6 +1361,21 @@ export const PT_BR_OVERRIDES = {
   'Stop, keep what it wrote': 'Parar e manter o que gravou',
   'Stop and remove what it wrote': 'Parar e remover o que gravou',
   'Could not remove it from Health Connect': 'Não foi possível remover do Conexão Saúde',
+  'Abdomen': 'Abdômen',
+  'Age': 'Idade',
+  'Body fat': 'Gordura corporal',
+  'Body fat saved': 'Gordura corporal salva',
+  'Caliper': 'Adipômetro',
+  'Enter a valid reading': 'Digite um valor válido',
+  'Estimated body fat': 'Gordura corporal estimada',
+  'Log body fat': 'Registrar gordura corporal',
+  'Manual': 'Manual',
+  'No readings yet. Log a tape, caliper or manual reading to start the curve.': 'Ainda sem leituras. Registre uma leitura com fita, adipômetro ou manual para começar a curva.',
+  'Recent readings': 'Leituras recentes',
+  'Show the body fat card on Home and Stats.': 'Mostra o cartão de gordura corporal no Início e nas Estatísticas.',
+  'Starts from your latest tape measurements. Saved with today’s measurements.': 'Parte das suas últimas medidas com fita. Salva com as medidas de hoje.',
+  'Suprailiac': 'Suprailíaca',
+  'Tape': 'Fita',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }
