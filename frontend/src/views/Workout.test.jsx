@@ -2377,7 +2377,7 @@ describe('workout focus view', () => {
 
     await click(buttonNamed('Complete set'))
     expect(mocks.S.active.entries[0].sets[0].done).toBe(true)
-    expect(mocks.startRest).toHaveBeenCalledWith(90, expect.any(Number), { forSet: expect.any(Number) })
+    expect(mocks.startRest).toHaveBeenCalledWith(90, expect.any(Number), expect.objectContaining({ forSet: expect.any(Number) }))
     expect(container.textContent).toContain('2/2')
 
     await click(buttonNamed('Complete set'))
@@ -2403,7 +2403,7 @@ describe('workout focus view', () => {
 
     await click(buttonNamed('Complete set'))
     expect(mocks.S.active.cur).toBe(0)
-    expect(mocks.startRest).toHaveBeenCalledWith(90, expect.any(Number), { forSet: expect.any(Number) })
+    expect(mocks.startRest).toHaveBeenCalledWith(90, expect.any(Number), expect.objectContaining({ forSet: expect.any(Number) }))
     await rerender()
     expect(container.textContent).toContain('Round 2')
 

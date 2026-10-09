@@ -1378,6 +1378,8 @@ export const PT_BR_OVERRIDES = {
   'Tape': 'Fita',
   'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'Dois bipes: próxima série. Três bipes rápidos: próxima rodada. Duas notas subindo: próximo exercício.',
   'Round': 'Rodada',
+  'Round': 'Rodada',
+  'Two beeps: next set. Three quick beeps: next round. Two rising notes: next exercise.': 'Dois bipes: próxima série. Três bipes rápidos: próxima rodada. Duas notas subindo: próximo exercício.',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }
