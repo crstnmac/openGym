@@ -1533,6 +1533,17 @@ export default {
   'Copy as text': 'टेक्स्ट के रूप में कॉपी करें',
   'Copied': 'कॉपी हो गया',
   'Could not copy': 'कॉपी नहीं हो सका',
+  // --- a past workout shared as an image (#453) ---
+  'Share as image': 'छवि के रूप में साझा करें',
+  'Could not create the image': 'छवि नहीं बन सकी',
+  'Image saved': 'छवि सहेजी गई',
+  'New personal records': 'नए व्यक्तिगत रिकॉर्ड',
+  'and {0} more': 'और {0} अन्य',
+  'Share workout': 'वर्कआउट साझा करें',
+  'Share': 'साझा करें',
+  'Muscle map': 'मांसपेशी मानचित्र',
+  'Show which muscles this workout trained.': 'दिखाएँ कि इस वर्कआउट में किन मांसपेशियों पर काम हुआ।',
+  'Preview of the image to share': 'साझा की जाने वाली छवि का पूर्वावलोकन',
   // --- a missed day logged afterwards (#284) ---
   'Log this workout': 'यह वर्कआउट दर्ज करें',
   'Mark all sets done': 'सभी सेट पूरे मार्क करें',

@@ -1275,6 +1275,17 @@ export const PT_BR_OVERRIDES = {
   'optional': 'opcional',
   'Body weight and measurements': 'Peso corporal e medidas',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': 'As pesagens do mesmo período, o seu peso-alvo se você definiu, e as suas medidas corporais (cintura, quadril etc.), um resumo por região, em cm.',
+  // --- a past workout shared as an image (#453) ---
+  'Share as image': 'Compartilhar como imagem',
+  'Could not create the image': 'Não foi possível criar a imagem',
+  'Image saved': 'Imagem salva',
+  'New personal records': 'Novos recordes pessoais',
+  'and {0} more': 'e mais {0}',
+  'Share workout': 'Compartilhar treino',
+  'Share': 'Compartilhar',
+  'Muscle map': 'Mapa muscular',
+  'Show which muscles this workout trained.': 'Mostra quais músculos este treino trabalhou.',
+  'Preview of the image to share': 'Prévia da imagem para compartilhar',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

@@ -1533,6 +1533,17 @@ export default {
   'Copy as text': 'Kopiuj jako tekst',
   'Copied': 'Skopiowano',
   'Could not copy': 'Nie udało się skopiować',
+  // --- a past workout shared as an image (#453) ---
+  'Share as image': 'Udostępnij jako obraz',
+  'Could not create the image': 'Nie udało się utworzyć obrazu',
+  'Image saved': 'Obraz zapisany',
+  'New personal records': 'Nowe rekordy życiowe',
+  'and {0} more': 'i {0} więcej',
+  'Share workout': 'Udostępnij trening',
+  'Share': 'Udostępnij',
+  'Muscle map': 'Mapa mięśni',
+  'Show which muscles this workout trained.': 'Pokazuje, które mięśnie pracowały w tym treningu.',
+  'Preview of the image to share': 'Podgląd obrazu do udostępnienia',
   // --- a missed day logged afterwards (#284) ---
   'Log this workout': 'Zapisz ten trening',
   'Mark all sets done': 'Oznacz wszystkie serie jako zrobione',

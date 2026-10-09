@@ -1533,6 +1533,17 @@ export default {
   'Copy as text': 'Metin olarak kopyala',
   'Copied': 'Kopyalandı',
   'Could not copy': 'Kopyalanamadı',
+  // --- a past workout shared as an image (#453) ---
+  'Share as image': 'Görsel olarak paylaş',
+  'Could not create the image': 'Görsel oluşturulamadı',
+  'Image saved': 'Görsel kaydedildi',
+  'New personal records': 'Yeni kişisel rekorlar',
+  'and {0} more': 've {0} tane daha',
+  'Share workout': 'Antrenmanı paylaş',
+  'Share': 'Paylaş',
+  'Muscle map': 'Kas haritası',
+  'Show which muscles this workout trained.': 'Bu antrenmanın hangi kasları çalıştırdığını gösterir.',
+  'Preview of the image to share': 'Paylaşılacak görselin önizlemesi',
   // --- a missed day logged afterwards (#284) ---
   'Log this workout': 'Bu antrenmanı kaydet',
   'Mark all sets done': 'Tüm setleri tamamlandı olarak işaretle',

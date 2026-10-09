@@ -1502,6 +1502,17 @@ export default {
   'Copy as text': 'Скопировать как текст',
   'Copied': 'Скопировано',
   'Could not copy': 'Не удалось скопировать',
+  // --- a past workout shared as an image (#453) ---
+  'Share as image': 'Поделиться картинкой',
+  'Could not create the image': 'Не удалось создать изображение',
+  'Image saved': 'Изображение сохранено',
+  'New personal records': 'Новые личные рекорды',
+  'and {0} more': 'и ещё {0}',
+  'Share workout': 'Поделиться тренировкой',
+  'Share': 'Поделиться',
+  'Muscle map': 'Карта мышц',
+  'Show which muscles this workout trained.': 'Показывает, какие мышцы работали на этой тренировке.',
+  'Preview of the image to share': 'Предпросмотр изображения',
   // --- a missed day logged afterwards (#284) ---
   'Log this workout': 'Записать эту тренировку',
   'Mark all sets done': 'Отметить все подходы выполненными',
