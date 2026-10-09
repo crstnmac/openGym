@@ -676,9 +676,11 @@ function ExerciseBlock({ entryIdx, compact, dense, editing, onToggle, onToggleSi
             if (!rec) return null
             return ' · ' + (rec.w > 0 ? tn('Record: {0} rep at {1}', 'Record: {0} reps at {1}', rec.r, fmtNum(rec.w) + ' ' + S.unit) : tn('Record: {0} rep', 'Record: {0} reps', rec.r))
           })()}</div>}
-          {!pairTail && swipeRow(s, i, perSide && !warm && isSideSet(s) ? (
-            // Unilateral work set: the number sits beside a two-row L/R stack, each side logged
-            // and ticked on its own (issue #60).
+          {!pairTail && swipeRow(s, i, perSide && isSideSet(s) ? (
+            // Unilateral set: the number sits beside a two-row L/R stack, each side logged and
+            // ticked on its own (issue #60). Warm-ups split the same way as the work sets they
+            // ramp toward, so there is no `!warm` exclusion; a warm-up side set has no
+            // drops/bursts, so sideExtras renders nothing under it.
             <div ref={el => onSetRowRef?.(i, el)} className={'setrow-side' + (s.done ? ' done' : '')}>
               <button type="button" className="n" aria-label={t('Set {0}', phaseNum)} aria-describedby={optsId} title={t('More')} onClick={() => openSetMenu(s, i)}>{phaseNum}</button>
               <div className="side-rows">
