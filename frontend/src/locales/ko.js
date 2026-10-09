@@ -2029,4 +2029,9 @@ export default {
   'optional': '선택',
   'Body weight and measurements': '체중과 신체 치수',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': '같은 기간의 체중 기록, 설정했다면 목표 체중, 그리고 신체 치수(허리, 엉덩이 등)를 부위별 요약으로, cm 단위로.',
+  'Back-off sets': '백오프 세트',
+  'Each set one step lighter than the one before. The weight above is the first set.': '각 세트가 이전 세트보다 한 단계 가볍습니다. 위의 무게가 첫 세트입니다.',
+  'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': '세트는 {0}(으)로 시작합니다. 모든 세트가 목표 반복수에 도달하면 첫 세트가 올라가고 나머지도 따라갑니다.',
+  'The first set goes up when every set reaches its reps, and the rest follow it.': '모든 세트가 목표 반복수에 도달하면 첫 세트가 올라가고 나머지도 따라갑니다.',
+  'All sets at the same weight.': '모든 세트를 같은 무게로.',
 }

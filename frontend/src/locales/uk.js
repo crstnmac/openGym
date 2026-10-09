@@ -2026,4 +2026,9 @@ export default {
   'optional': 'необов’язково',
   'Body weight and measurements': 'Вага тіла та виміри',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': 'Зважування за той самий період, ваша цільова вага, якщо ви її задали, і виміри тіла (талія, таз тощо), зведення по кожній ділянці, у см.',
+  'Back-off sets': 'Підходи зі зниженням ваги',
+  'Each set one step lighter than the one before. The weight above is the first set.': 'Кожен підхід на один крок легший за попередній. Вага вище — це перший підхід.',
+  'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': 'Підходи починаються з {0}. Перший підхід зростає, коли кожен підхід виконано на всі повтори, решта йдуть за ним.',
+  'The first set goes up when every set reaches its reps, and the rest follow it.': 'Перший підхід зростає, коли кожен підхід виконано на всі повтори, решта йдуть за ним.',
+  'All sets at the same weight.': 'Усі підходи з однаковою вагою.',
 }

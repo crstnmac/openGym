@@ -2029,4 +2029,9 @@ export default {
   'optional': 'facoltativo',
   'Body weight and measurements': 'Peso corporeo e misure',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': 'Le pesate dello stesso periodo, il tuo peso obiettivo se l’hai impostato, e le tue misure corporee (vita, fianchi e così via), un riepilogo per punto, in cm.',
+  'Back-off sets': 'Serie a scalare',
+  'Each set one step lighter than the one before. The weight above is the first set.': 'Ogni serie un passo più leggera della precedente. Il peso sopra è la prima serie.',
+  'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': 'Le serie partono da {0}. La prima serie sale quando ogni serie raggiunge le sue ripetizioni, e le altre la seguono.',
+  'The first set goes up when every set reaches its reps, and the rest follow it.': 'La prima serie sale quando ogni serie raggiunge le sue ripetizioni, e le altre la seguono.',
+  'All sets at the same weight.': 'Tutte le serie con lo stesso peso.',
 }

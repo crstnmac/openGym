@@ -2049,4 +2049,9 @@ export default {
   'optional': 'optional',
   'Body weight and measurements': 'Körpergewicht und Körpermaße',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': 'Wiegungen aus demselben Zeitraum, dein Zielgewicht, falls gesetzt, und deine Körpermaße (Taille, Hüfte usw.) als Zusammenfassung pro Stelle in cm.',
+  'Back-off sets': 'Back-off-Sätze',
+  'Each set one step lighter than the one before. The weight above is the first set.': 'Jeder Satz eine Stufe leichter als der davor. Das Gewicht oben ist der erste Satz.',
+  'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': 'Sätze starten mit {0}. Der erste Satz steigt, wenn jeder Satz seine Wiederholungen erreicht, und die anderen ziehen mit.',
+  'The first set goes up when every set reaches its reps, and the rest follow it.': 'Der erste Satz steigt, wenn jeder Satz seine Wiederholungen erreicht, und die anderen ziehen mit.',
+  'All sets at the same weight.': 'Alle Sätze mit demselben Gewicht.',
 }

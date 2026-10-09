@@ -2029,4 +2029,9 @@ export default {
   'optional': '可选',
   'Body weight and measurements': '体重与围度',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': '同一时间段的称重记录、你设定的目标体重，以及身体围度（腰围、臀围等），按部位汇总，单位为 cm。',
+  'Back-off sets': '递减组',
+  'Each set one step lighter than the one before. The weight above is the first set.': '每组比上一组轻一个步长。上面的重量是第一组。',
+  'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': '各组从 {0} 开始。每组都达到目标次数时，第一组加重，其余各组随之调整。',
+  'The first set goes up when every set reaches its reps, and the rest follow it.': '每组都达到目标次数时，第一组加重，其余各组随之调整。',
+  'All sets at the same weight.': '所有组使用相同重量。',
 }

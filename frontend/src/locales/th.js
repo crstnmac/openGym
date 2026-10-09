@@ -2040,4 +2040,9 @@ export default {
   'optional': 'ไม่บังคับ',
   'Body weight and measurements': 'น้ำหนักตัวและขนาดร่างกาย',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': 'บันทึกน้ำหนักในช่วงเวลาเดียวกัน น้ำหนักเป้าหมายหากตั้งไว้ และขนาดร่างกาย (เอว สะโพก ฯลฯ) สรุปเป็นรายตำแหน่ง หน่วยเป็น ซม.',
+  'Back-off sets': 'เซ็ตลดน้ำหนัก',
+  'Each set one step lighter than the one before. The weight above is the first set.': 'แต่ละเซ็ตเบากว่าเซ็ตก่อนหน้าหนึ่งขั้น น้ำหนักด้านบนคือเซ็ตแรก',
+  'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': 'เซ็ตเริ่มที่ {0} เซ็ตแรกจะเพิ่มเมื่อทุกเซ็ตทำครบจำนวนครั้ง และเซ็ตที่เหลือจะเพิ่มตาม',
+  'The first set goes up when every set reaches its reps, and the rest follow it.': 'เซ็ตแรกจะเพิ่มเมื่อทุกเซ็ตทำครบจำนวนครั้ง และเซ็ตที่เหลือจะเพิ่มตาม',
+  'All sets at the same weight.': 'ทุกเซ็ตใช้น้ำหนักเท่ากัน',
 }

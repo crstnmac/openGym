@@ -2032,4 +2032,9 @@ export default {
   'optional': 'nem kötelező',
   'Body weight and measurements': 'Testsúly és testméretek',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': 'Az ugyanabból az időszakból származó mérések, a célsúlyod, ha megadtál egyet, és a testméreteid (derék, csípő stb.), testrészenkénti összegzésként, cm-ben.',
+  'Back-off sets': 'Csökkenő sorozatok',
+  'Each set one step lighter than the one before. The weight above is the first set.': 'Minden sorozat egy lépéssel könnyebb az előzőnél. A fenti súly az első sorozaté.',
+  'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': 'A sorozatok kezdősúlya: {0}. Az első sorozat akkor nő, ha minden sorozat eléri az ismétlésszámát, és a többi követi.',
+  'The first set goes up when every set reaches its reps, and the rest follow it.': 'Az első sorozat akkor nő, ha minden sorozat eléri az ismétlésszámát, és a többi követi.',
+  'All sets at the same weight.': 'Minden sorozat ugyanazzal a súllyal.',
 }

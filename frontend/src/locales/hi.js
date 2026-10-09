@@ -2029,4 +2029,9 @@ export default {
   'optional': 'वैकल्पिक',
   'Body weight and measurements': 'शरीर का वज़न और माप',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': 'उसी अवधि के वज़न मापन, यदि आपने तय किया हो तो आपका लक्ष्य वज़न, और आपके शरीर के माप (कमर, कूल्हे आदि), हर स्थान का सारांश, सेमी में।',
+  'Back-off sets': 'बैक-ऑफ़ सेट',
+  'Each set one step lighter than the one before. The weight above is the first set.': 'हर सेट पिछले वाले से एक स्टेप हल्का। ऊपर वाला वज़न पहला सेट है।',
+  'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': 'सेट {0} से शुरू होते हैं। जब हर सेट अपने रेप्स पूरे कर ले तो पहला सेट बढ़ता है, और बाकी उसके साथ चलते हैं।',
+  'The first set goes up when every set reaches its reps, and the rest follow it.': 'जब हर सेट अपने रेप्स पूरे कर ले तो पहला सेट बढ़ता है, और बाकी उसके साथ चलते हैं।',
+  'All sets at the same weight.': 'सभी सेट एक ही वज़न पर।',
 }

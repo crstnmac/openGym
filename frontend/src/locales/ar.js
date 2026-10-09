@@ -2082,4 +2082,9 @@ export default {
   'optional': 'اختياري',
   'Body weight and measurements': 'وزن الجسم وقياساته',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': 'قياسات الوزن من الفترة نفسها، ووزنك المستهدف إن حددته، وقياسات جسمك (الخصر والورك وغيرهما) في ملخص لكل موضع بالسنتيمتر.',
+  'Back-off sets': 'مجموعات تنازلية',
+  'Each set one step lighter than the one before. The weight above is the first set.': 'كل مجموعة أخف بخطوة واحدة من التي قبلها. الوزن أعلاه هو المجموعة الأولى.',
+  'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': 'تبدأ المجموعات عند {0}. يرتفع وزن المجموعة الأولى عندما تبلغ كل مجموعة تكراراتها، وتتبعها البقية.',
+  'The first set goes up when every set reaches its reps, and the rest follow it.': 'يرتفع وزن المجموعة الأولى عندما تبلغ كل مجموعة تكراراتها، وتتبعها البقية.',
+  'All sets at the same weight.': 'كل المجموعات بالوزن نفسه.',
 }

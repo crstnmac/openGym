@@ -2022,4 +2022,9 @@ export default {
   'optional': '選填',
   'Body weight and measurements': '體重與圍度',
   'Weigh-ins from the same window, your goal weight if you set one, and your tape measurements (waist, hips and so on), a summary per site, in cm.': '同一時間範圍的體重紀錄、你設定的目標體重，以及身體圍度（腰圍、臀圍等），依部位彙整，單位為 cm。',
+  'Back-off sets': '遞減組',
+  'Each set one step lighter than the one before. The weight above is the first set.': '每組比上一組輕一個級距。上面的重量是第一組。',
+  'Sets open at {0}. The first set goes up when every set reaches its reps, and the rest follow it.': '各組從 {0} 開始。每組都達到目標次數時，第一組加重，其餘各組隨之調整。',
+  'The first set goes up when every set reaches its reps, and the rest follow it.': '每組都達到目標次數時，第一組加重，其餘各組隨之調整。',
+  'All sets at the same weight.': '所有組使用相同重量。',
 }
