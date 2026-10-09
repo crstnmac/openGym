@@ -76,7 +76,7 @@ const outputs = [];
     maxUrl + '\n' +
     media.slice(media.indexOf('export function cleanUrl'), media.indexOf('// Hosts whose pages')) + '\n' +
     fn('modeOf', readLib('history')) + '\n' + fn('convertWeight', readLib('units')) + '\n' +
-    fn('isPyramid', readLib('pyramid')) + '\n' + fn('normalizePyramid', readLib('pyramid')) + '\n' + fn('normalizePyramidRest', readLib('pyramid')) + '\n' + importer;
+    fn('isPyramid', readLib('pyramid')) + '\n' + fn('normalizePyramid', readLib('pyramid')) + '\n' + fn('normalizePyramidRest', readLib('pyramid')) + '\n' + fn('normalizePyramidWeight', readLib('pyramid')) + '\n' + fn('isBackoff', readLib('backoff')) + '\n' + importer;
   outputs.push({ file: join(core, 'plan-file.js'), body, note: 'browser plan parser and merge' });
 }
 

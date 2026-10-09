@@ -46,6 +46,8 @@ const LABELS = {
   'auth.passkey.add': 'Added a passkey',
   'auth.passkey.fail': 'Adding a passkey failed',
   'auth.passkey.remove': 'Removed a passkey',
+  'auth.plan-key.add': 'Made a plan-import key',
+  'auth.plan-key.revoke': 'Revoked a plan-import key',
   'auth.link.create': 'Made a one-time code for another device',
   'auth.link.ok': 'Added a device with a one-time code',
   'auth.link.fail': 'Adding a device with a code failed',
@@ -112,7 +114,8 @@ const ACTS = {
   'password-remove': 'removing the password',
   'passkey-add': 'adding a passkey',
   'passkey-remove': 'removing a passkey',
-  'device-link': 'making a one-time code for another device'
+  'device-link': 'making a one-time code for another device',
+  'plan-key-add': 'making a plan-import key'
 }
 export const auditAct = act => ACTS[act] || (act ? String(act) : '')
 

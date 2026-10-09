@@ -91,6 +91,19 @@ export function normalizePyramidRest(rest, length) {
   const out = Array.from({ length }, (_, i) => Math.max(0, Math.round(Number(src[i])) || 0))
   return out.some(v => v > 0) ? out : []
 }
+export function normalizePyramidWeight(weights, length) {
+  const src = Array.isArray(weights) ? weights : []
+  const out = Array.from({ length }, (_, i) => {
+    const w = Number(src[i])
+    return Number.isFinite(w) && w > 0 ? Math.round(w * 100) / 100 : 0
+  })
+  return out.some(v => v > 0) ? out : []
+}
+export function isBackoff(cfg) {
+  return !!cfg && cfg.backoff === true && (cfg.mode || 'reps') === 'reps'
+    && !(Array.isArray(cfg.pyramid) && cfg.pyramid.length)
+    && cfg.intensifier?.type !== 'restpause'
+}
 const PLAN_FMT = 1
 const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 0]   // every getDay() index; only the reader's own
                                           // screen puts them in an order (see weekOrder)
@@ -118,6 +131,7 @@ function convertedExercise(e, sourceUnit, destinationUnit) {
   if (out.weight != null) out.weight = convertWeight(out.weight, sourceUnit, destinationUnit)
   // A timed increment is seconds, not a load. Rep-mode increments are load overrides.
   if (modeOf(out) === 'reps' && out.inc > 0) out.inc = convertWeight(out.inc, sourceUnit, destinationUnit)
+  if (Array.isArray(out.pyramidWeight)) out.pyramidWeight = out.pyramidWeight.map(w => (w > 0 ? convertWeight(w, sourceUnit, destinationUnit) : w))
   return out
 }
 
@@ -155,6 +169,8 @@ function cleanEx(e) {
       o.pyramid = normalizePyramid(e.pyramid)
       const rest = normalizePyramidRest(e.pyramidRest, o.pyramid.length)
       if (rest.length) o.pyramidRest = rest
+      const weight = normalizePyramidWeight(e.pyramidWeight, o.pyramid.length)
+      if (weight.length) o.pyramidWeight = weight
     }
   }
   // How the exercise is logged travels too (issues #31/#32) — the bodyweight flag only when
@@ -166,6 +182,8 @@ function cleanEx(e) {
   // without its rule is just a list of weights.
   if (e.prog) o.prog = e.prog
   if (e.inc > 0) o.inc = e.inc
+  // Back-off sets step down by that same step; written only when on (lib/backoff.js).
+  if (isBackoff(e)) o.backoff = true
   // Epley deload factor is a per-occurrence progression setting. Omit the default so older
   // exports remain compact and importing them preserves the default 90% behaviour.
   if (e.deloadFactor != null && Number(e.deloadFactor) !== 0.9) o.deloadFactor = e.deloadFactor
@@ -304,8 +322,9 @@ export function parsePlan(raw, destinationUnit = 'kg') {
       const warmRest = cleanRestSec(e.warmupRestSec)
       const pyramid = normalizePyramid(e.pyramid)
       const pyramidRest = pyramid.length ? normalizePyramidRest(e.pyramidRest, pyramid.length) : []
-      const { warmupSets, intensifier, restSec, warmupRestSec, pyramid: _pyramid, pyramidRest: _pyramidRest, ...passthrough } = e
-      return convertedExercise({ ...passthrough, ...(pyramid.length ? { pyramid } : {}), ...(pyramidRest.length ? { pyramidRest } : {}), ...(warm ? { warmupSets: warm } : {}), ...(intens ? { intensifier: intens } : {}), ...(rest ? { restSec: rest } : {}), ...(warmRest ? { warmupRestSec: warmRest } : {}) }, sourceUnit || destination, destination)
+      const pyramidWeight = pyramid.length ? normalizePyramidWeight(e.pyramidWeight, pyramid.length) : []
+      const { warmupSets, intensifier, restSec, warmupRestSec, pyramid: _pyramid, pyramidRest: _pyramidRest, pyramidWeight: _pyramidWeight, ...passthrough } = e
+      return convertedExercise({ ...passthrough, ...(pyramid.length ? { pyramid } : {}), ...(pyramidRest.length ? { pyramidRest } : {}), ...(pyramidWeight.length ? { pyramidWeight } : {}), ...(warm ? { warmupSets: warm } : {}), ...(intens ? { intensifier: intens } : {}), ...(rest ? { restSec: rest } : {}), ...(warmRest ? { warmupRestSec: warmRest } : {}) }, sourceUnit || destination, destination)
     })
   }))
   return {
