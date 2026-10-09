@@ -129,3 +129,33 @@ describe('rating a superset set closes a sheet and moves the marker in one tap',
     expect(scrolls).toEqual([host.querySelectorAll('.setrow')[2]])
   })
 })
+
+// List layout (#165): a rest starting scrolls the exercise it points you at into view. Rating the
+// set closes the effort sheet and starts that rest in one tap, so the scroll has to wait for the
+// sheet to finish putting the page back, as the superset card's does.
+describe('rating a set in the List layout starts a rest', () => {
+  it('scrolls to the exercise the rest points at after the sheet has finished putting the page back', async () => {
+    const S = useStore.getState().S
+    useStore.setState({ S: { ...S, workoutView: 'list', active: { ...S.active, entries: [entry('0025'), entry('0001')] } } })
+    await mount()
+    await runFrames()                                        // the list's own scroll to the current unit
+    const benchNext = () => host.querySelector('[data-exidx="0"]').querySelectorAll('.setrow')[1]
+
+    await click(host.querySelector('.setrow .effcell.is-empty'))
+    expect(useUI.getState().sheets.length).toBe(1)
+    await runFrames()
+    scrolls.length = 0
+
+    // Pick a level: the sheet closes, the set is ticked and its rest starts.
+    await click(document.querySelector('.effpick .item.menu-item'))
+    expect(useStore.getState().S.active.entries[0].sets[0].done).toBe(true)
+    expect(useUI.getState().timer).toMatchObject({ forIdx: 0, kind: 'set' })
+    expect(scrolls).toEqual(['scrollTo'])                    // the un-pin's restore, nothing else yet
+
+    await runFrames()
+    await act(async () => { vi.advanceTimersByTime(349) })
+    expect(scrolls).toEqual(['scrollTo', 'scrollTo'])         // the rest's scroll has not come yet
+    await act(async () => { vi.advanceTimersByTime(3) })
+    expect(scrolls).toEqual(['scrollTo', 'scrollTo', benchNext()])
+  })
+})

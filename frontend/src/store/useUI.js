@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { uid } from '../lib/format.js'
-import { beep, chime, vibrate, alertBuzz } from '../lib/sound.js'
+import { chime, countdown, holdSession, hush, restOver, vibrate, alertBuzz } from '../lib/sound.js'
 import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { deviceId } from '../lib/push.js'
@@ -63,12 +63,18 @@ const maybeRestNotification = async () => {
   try {
     const reg = await navigator.serviceWorker?.getRegistration?.()
     if (!(await restAlertsOn(reg))) return
-    // Same tag as the server's push (api/push-messages.js): whichever lands second replaces the
-    // first instead of stacking a second banner. No body — it only repeated the title.
     // Android Chrome forbids the Notification constructor (Illegal constructor) - the
     // service-worker registration path is the one that actually pops there.
-    const opts = { tag: 'rest-timer', icon: 'icon-512.png' }
-    if (reg?.showNotification) { reg.showNotification(t('Rest’s over. Next set!'), opts); return }
+    // Same tag as the server's rest-timer push (api/push-messages.js): whichever lands second
+    // replaces the first instead of stacking a second banner, and one already in the tray is
+    // closed by hand first the way sw.js does. No body — it only repeated the title.
+    const tag = 'rest-timer'
+    const opts = { tag, icon: 'icon-512.png', renotify: true }
+    if (reg?.showNotification) {
+      try { for (const n of await reg.getNotifications?.({ tag }) || []) n.close() } catch { /* */ }
+      reg.showNotification(t('Rest’s over. Next set!'), opts)
+      return
+    }
     new Notification(t('Rest’s over. Next set!'), opts)
   } catch {
     // Intentionally ignore: notification APIs vary by browser and policy in edge cases.
@@ -90,20 +96,55 @@ const runToast = set => {
 }
 let timerInt = null
 let timerTick = null
+// What a rest hands over to when it is over (Workout.jsx restHandOver: a timed exercise's next
+// hold). The rest carries it as data (timer.hand), so it outlives the render that started the
+// rest and is kept with the rest across a reload (gym_rest); the workout screen binds the one
+// function that acts on it (bindRest). Fires when the rest runs out or is skipped — never on a
+// plain stopRest(), never twice: a rest on Ready has had its turn. It is told whether the
+// countdown actually ran out on screen (seenLive): a rest that expired in your pocket must not
+// start a hold nobody watched, but moving the screen on to the next exercise is exactly what you
+// want waiting for you when you unlock the phone.
+let handOver = null
+// Whether the running rest has already had its end on a hidden page (see runRest): the audio
+// session let go and, for a guest, the "rest over". Reset by startRest, and by the notification's
+// own buttons bringing a rest back to life (followNativeRest); a flag rather than a key on endsAt,
+// which ±15 s moves.
+let hiddenOver = false
 let workInt = null
 let workTick = null
+// The same for the running hold (see runWork): its audio session already let go on a hidden page.
+// Reset by runWork, which every start, resume and restore of a hold goes through.
+let workHiddenOver = false
 let workDone = null
 const MAX_WORK_OVERTIME_SEC = 15 * 60
 
 // The hold's countdown tick, from a start or from a restore after a reload.
 const runWork = (set, get) => {
   stopWorkTicking()
+  workHiddenOver = false
   workTick = () => {
     const wk = get().work
     if (!wk) return
     const left = Math.max(wk.overtime ? -MAX_WORK_OVERTIME_SEC : 0, Math.round((wk.endsAt - Date.now()) / 1000))
-    const seenLive = !document.hidden && pageHiddenAt === null
-    if (!document.hidden) pageHiddenAt = null
+    // A hidden page changes nothing on screen — see runRest. A hold has no push to fall back
+    // on and nothing to alert: it finishes, and logs its full length, on the tick that runs
+    // when the page is back. The audio session goes when it runs out, as a rest's does: nothing
+    // is left to count, its end only sounds on screen, and held on it kept the phone's music
+    // paused (under 'playback') for as long as the phone stayed in the pocket. Once.
+    if (document.hidden) {
+      if (left <= 0 && !workHiddenOver) {
+        workHiddenOver = true
+        hush()
+        holdSession(false)
+      }
+      return
+    }
+    const seenLive = pageHiddenAt === null
+    pageHiddenAt = null
+    // Back on screen after a lock or an app switch. The queued countdown froze with the audio
+    // clock while the page was away, so it would now tick late; queue it again against the
+    // time that is really left. Fires once, on the first tick back.
+    if (!seenLive && left > 0) countdown(useStore.getState().S.sound, left)
     if (left === wk.left) return
     const { sound: snd, classicChime } = useStore.getState().S
     if (left <= 0) {
@@ -116,10 +157,11 @@ const runWork = (set, get) => {
       get().stopWork()
       // `chimed` tells the set's own tick that this end has already sounded and buzzed — not
       // so when overtime ran out, whose end chime played when the target was reached.
-      if (done) done(wk.total - left, { chimed: seenLive && !wk.alerted })
+      // `endedAt`, only for an end nobody saw: when it really was, so the rest it earned can have
+      // been counting since (startRest's `since`) rather than start in full now the page is back.
+      if (done) done(wk.total - left, { chimed: seenLive && !wk.alerted, ...(seenLive ? {} : { endedAt: wk.endsAt - left * 1000 }) })
       return
     }
-    if (left <= 3) beep(snd, 660, 0.1)
     set({ work: { ...wk, left } })
   }
   workInt = setInterval(workTick, 1000)
@@ -164,8 +206,38 @@ const runRest = (set, get) => {
     const tm = get().timer
     if (!tm || tm.ready || tm.paused) return
     const left = Math.max(0, Math.round((tm.endsAt - Date.now()) / 1000))
-    const seenLive = !document.hidden && pageHiddenAt === null
-    if (!document.hidden) pageHiddenAt = null
+    // A hidden page changes nothing on screen. With the audio session held for the whole rest
+    // (holdSession) the page keeps running while the phone is locked or the app switched away —
+    // where it used to be frozen — and this tick started arriving there: a re-render every
+    // second, and at zero the toast, the hand-over and a local notification, all done to a
+    // screen nobody is looking at. That doubled the "rest over" alert (this one plus the server
+    // push), and iOS was left with a page laid out while it was not showing it: on return the
+    // tab bar and the timer bar sat where the page had been, scrolling with it. So a hidden tick
+    // leaves everything to the tick that visibilitychange fires when the page is back — exactly
+    // what a frozen page did. The one thing a hidden page owes is the alert, and a signed-in
+    // device already gets it from the push pushRestTimer scheduled. For a guest the local
+    // notification stands in, once per rest since the interval keeps calling, but only where this
+    // browser still holds a push subscription (restAlertsOn); a guest that never signed in here
+    // gets no alert. The Android app has its own alarm for this (bookRestEnd).
+    // The audio session is not on screen either, and it goes at the end: held on, it kept the
+    // volume buttons on a timer with nothing left to count and, under 'playback', the phone's
+    // music paused for as long as the phone stayed in the pocket. Once, like the alert: every
+    // holdSession(false) puts the context's sleep off again.
+    if (document.hidden) {
+      if (left <= 0 && !hiddenOver) {
+        hiddenOver = true
+        hush()
+        holdSession(false)
+        if (!MOBILE && !useStore.getState().user) maybeRestNotification()
+      }
+      return
+    }
+    const seenLive = pageHiddenAt === null
+    pageHiddenAt = null
+    // Back on screen after a lock or an app switch. The queued countdown froze with the audio
+    // clock while the page was away, so it would now tick late; queue it again against the
+    // time that is really left. Fires once, on the first tick back.
+    if (!seenLive && left > 0) countdown(useStore.getState().S.sound, left)
     if (left === tm.left) return
     const { sound: snd, classicChime } = useStore.getState().S
     if (left <= 0 && tm.kind === 'switch') {
@@ -173,14 +245,21 @@ const runRest = (set, get) => {
       // the other side is the next thing, one tap away.
       if (seenLive) { chime(snd, classicChime); alertBuzz([200, 100, 200]); get().flashTimer() }
       stopRestTicking()
+      hush()
+      holdSession(false)
       set({ timer: null })
+      // A timed exercise that runs itself: the other side's hold (Workout.jsx toggle).
+      if (tm.hand && handOver) handOver(tm, seenLive)
       return
     }
     if (left <= 0) {
       if (seenLive) {
-        // The Android alarm for this end stays quiet while the app is on screen, so this chime is
+        // The Android alarm for this end stays quiet while the app is on screen, so this sound is
         // the only one. Locked, this branch never runs and the alarm's tone does.
-        chime(snd, classicChime)
+        // Settings → When a rest ends: the chime, the classic beeps, or ('kind') one sound per
+        // kind of rest (lib/sound.js restOver), told apart by what the rest leads into (timer.kind).
+        if (classicChime === 'kind') restOver(snd, tm.kind)
+        else chime(snd, classicChime)
         alertBuzz([200, 100, 200]); get().flashTimer()
       }
       // The toast stays even when the rest ran out while the app was hidden: a guest, or anyone
@@ -189,17 +268,32 @@ const runRest = (set, get) => {
       // The native alarm is left armed: this tick can come a little early, and with the screen
       // locked it never runs at all.
       get().toast(t('Rest’s over. Next set!'))
-      if (!MOBILE) maybeRestNotification()
       cancelPushRestTimer()
       stopRestTicking()
+      hush()               // nothing left to count, so the volume buttons can go back to the ringer
+      holdSession(false)
       set({ timer: { ...tm, left: 0, ready: true } })
+      // After Ready is set, so a hold the hand-over starts replaces it (startWork stops the rest).
+      // It gets the rest as it is now, not as it was when it started: an exercise added, removed
+      // or moved above it re-pointed forIdx along the way.
+      if (tm.hand && handOver) handOver(tm, seenLive)
       return
     }
-    if (left <= 3) beep(snd, 660, 0.1)
     set({ timer: { ...tm, left } })
   }
   timerInt = setInterval(timerTick, 1000)
   document.addEventListener('visibilitychange', timerTick)
+}
+
+// Where a rest's hand-over remembers the marker — hand.from (Workout.jsx restHandOver) and
+// hand.chain.cur (chainHold) — kept on the same exercises when the list changes shape, as forIdx
+// is (shiftRestOwner, Workout.jsx moveUnitAt): the list shifting under the marker is not you going
+// anywhere. `to` maps an old index to its new one.
+export const remapHand = (hand, to) => {
+  const next = { ...hand }
+  if (next.from != null) next.from = to(next.from)
+  if (next.chain?.cur != null) next.chain = { ...next.chain, cur: to(next.chain.cur) }
+  return next
 }
 
 export const useUI = create((set, get) => ({
@@ -209,7 +303,17 @@ export const useUI = create((set, get) => ({
   swipeHint: null,     // { idx, i, id }: the set row showing the one-time swipe hint (Workout.jsx)
   setFlash: null,      // { idx, i, id }: the set row a copy or an undo just brought, flashed once
   timer: null,         // rest countdown between sets — { left, total, endsAt, forIdx, ready?, paused?, kind? }
-                       // kind: 'switch' for the short pause between the two sides of a timed set
+                       // kind: 'switch' for the short pause between the two sides of a timed set;
+                       //   otherwise what the rest leads into — 'set' | 'round' | 'block'
+                       //   (supersetFlow.restKind), which picks the rest-over sound when the
+                       //   setting asks for one per kind
+                       // phase: 'warmup' when the set a rest leads into is a warm-up (ramp) set, else
+                       //   'work', on an exercise that has warm-up rows (supersetFlow.restSetPhase)
+                       // hand: what the rest hands over to when it is over (see handOver above) —
+                       //   { from?, chain?, stay? }: `from` the marker when the rest started, so the screen
+                       //   can move on (Workout.jsx restHandOver); `chain` { id, i, n, cur } the hold
+                       //   of row i of entry id, if it still has n rows and the marker is still at cur;
+                       //   `stay` for the rest after a hold you went away from: it hands over nothing
                        // forIdx: index of the active entry whose set started the rest (undefined when unknown)
                        // forSet: index of that set in the entry's rows, so removing the set stops its rest
                        // paused: held at `left`; `endsAt` means nothing until resumeRest sets it again
@@ -261,10 +365,12 @@ export const useUI = create((set, get) => ({
     if (get().toastMsg) runToast(set)
   },
 
-  startRest(sec, forIdx, { kind, forSet } = {}) {
+  startRest(sec, forIdx, { kind, forSet, phase, hand, since } = {}) {
     get().stopRest()
     // Rest timer set to Off. Stopping and returning rather than starting a zero-length timer
     // keeps every caller honest: the four places that start a rest do not each need to know.
+    // Off also drops the hand-over: it rides on the rest, so with no rest the next hold waits for
+    // a tap like any other.
     if (!(sec > 0)) return
     // And the hold, the other way round from startWork: the two must never run together (see the
     // work timer below). A set ticked by hand while its hold ran used to leave both going — the
@@ -280,8 +386,32 @@ export const useUI = create((set, get) => ({
     // was away" and finished in silence — a one-second rest, started on screen, over on screen,
     // with no beep, no vibration and no flash. Each timer starts from where the page is now.
     pageHiddenAt = document.hidden ? Date.now() : null
-    const endsAt = Date.now() + sec * 1000
-    set({ timer: { left: sec, total: sec, endsAt, forIdx, ...(forSet != null ? { forSet } : {}), ...(kind === 'switch' ? { kind } : {}) } })
+    hiddenOver = false
+    // `since`: when the rest really began, if that was while the page was away — the end of a hold
+    // that ran out hidden, which is only finished on the first tick back (runWork's `endedAt`).
+    // The owner's call: that rest has been counting all along. So it is started as one that began
+    // then, on a page that was away, and this is its first tick back: what is left is counted in
+    // and booked as for any rest, and one that is over too ends here the way a rest that ran out
+    // unseen does — Ready and its toast (a switch-sides pause just goes), the hand-over told nobody
+    // saw it (the screen moves on, no hold starts) — with nothing counted in or booked for an end
+    // that has passed.
+    const late = since != null && since < Date.now()
+    if (late) pageHiddenAt = since
+    const endsAt = (late ? since : Date.now()) + sec * 1000
+    set({ timer: { left: sec, total: sec, endsAt, forIdx, ...(forSet != null ? { forSet } : {}), ...(kind ? { kind } : {}), ...(phase ? { phase } : {}), ...(hand ? { hand } : {}) } })
+    if (late) {
+      if (Math.round((endsAt - Date.now()) / 1000) > 0) { holdSession(true); bookRestEnd(endsAt, sec, kind) }
+      runRest(set, get)
+      timerTick()
+      return
+    }
+    // The last seconds are queued now, inside the tap that finished the set, rather than beeped
+    // by the ticks below — the ticks stop running when the phone goes in a pocket (lib/sound.js
+    // countdown). Every exit from this timer calls stopRest, which calls them off; a pause calls
+    // them off too and a resume queues them again (pauseRest, resumeRest). The switch-sides
+    // pause counts you in like any rest.
+    countdown(useStore.getState().S.sound, sec)
+    holdSession(true)      // so the phone's volume buttons reach the timer, not the ringer
     bookRestEnd(endsAt, sec, kind)
     runRest(set, get)
   },
@@ -295,6 +425,10 @@ export const useUI = create((set, get) => ({
     if (!tm || tm.ready || tm.paused) return
     stopRestTicking()
     cancelPushRestTimer()
+    // The count-in queued for the old end would tick on through the pause; and a held rest has no
+    // tone to reach with the volume buttons, so the audio session goes back too.
+    hush()
+    holdSession(false)
     const left = Math.max(1, Math.round((tm.endsAt - Date.now()) / 1000))
     holdRestAlert(left, tm.total)
     set({ timer: { ...tm, left, paused: true } })
@@ -310,20 +444,22 @@ export const useUI = create((set, get) => ({
     pageHiddenAt = document.hidden ? Date.now() : null
     const endsAt = Date.now() + tm.left * 1000
     set({ timer: { ...rest, endsAt } })
+    countdown(useStore.getState().S.sound, tm.left)
+    holdSession(true)
     bookRestEnd(endsAt, tm.total, tm.kind)
     runRest(set, get)
   },
   addRest(sec) {
     const tm = get().timer
     if (!tm) return
-    if (tm.ready) { if (sec > 0) get().startRest(Math.min(sec, REST_MAX), tm.forIdx, { forSet: tm.forSet }); else get().stopRest(); return }
+    if (tm.ready) { if (sec > 0) get().startRest(Math.min(sec, REST_MAX), tm.forIdx, { forSet: tm.forSet, kind: tm.kind, phase: tm.phase, hand: tm.hand }); else get().stopRest(); return }
     // +15 s stops where the wheel does (15:00), so the two never disagree about a rest's length.
     if (sec > 0) sec = Math.min(sec, Math.max(0, REST_MAX - tm.left))
     if (!sec) return
     const left = tm.left + sec
     // taking off more than is left means "I'm ready now" — same as skipping, and it keeps a
     // negative duration out of both the progress bar and the server-side push schedule
-    if (left <= 0) { get().stopRest(); return }
+    if (left <= 0) { get().skipRest(); return }
     const total = Math.max(tm.total || left, left)
     // Paused, there is no end to move and nothing booked on the server: the time is simply held,
     // and the notification holds the new figure.
@@ -331,13 +467,22 @@ export const useUI = create((set, get) => ({
     const endsAt = tm.endsAt + sec * 1000
     set({ timer: { ...tm, left, total, endsAt } })
     bookRestEnd(endsAt, total, tm.kind)
+    countdown(useStore.getState().S.sound, left)   // the end moved; so do the last five seconds
   },
   // The active list changed shape (an exercise removed or inserted at `at`): keep the rest
   // pointing at the same exercise. Returns nothing; the caller decides whether to stop instead.
+  // A running hold's owner moves the same way: an exercise added above it in the List layout
+  // (it goes in after the current unit, and the hold can be further down) moved its row, and
+  // its saved owner is what a reload brings it back to. The workout screen moves its own copy
+  // (Workout.jsx holdAt) with it.
   shiftRestOwner(at, delta) {
     const tm = get().timer
-    if (!tm || !(tm.forIdx >= at)) return
-    set({ timer: { ...tm, forIdx: tm.forIdx + delta } })
+    if (tm && tm.forIdx >= at) set({ timer: { ...tm, forIdx: tm.forIdx + delta } })
+    // One that pointed at an exercise now removed points nowhere: what took its place is another one.
+    const tc = get().timer
+    if (tc?.hand) set({ timer: { ...tc, hand: remapHand(tc.hand, i => (i >= at ? i + delta : i >= at + delta ? -1 : i)) } })
+    const wk = get().work
+    if (wk?.owner && wk.owner.idx >= at) set({ work: { ...wk, owner: { ...wk.owner, idx: wk.owner.idx + delta } } })
   },
   // Android: the rest notification's own Pause, −15 s and +15 s (#296) change the countdown there
   // first, and this brings the bar in the app to the same place — a pause stops the ticking here
@@ -346,20 +491,51 @@ export const useUI = create((set, get) => ({
   followNativeRest({ endsAt, left, total, paused }) {
     const tm = get().timer
     const forIdx = tm?.forIdx
-    const kind = { ...(tm?.kind === 'switch' ? { kind: 'switch' } : {}), ...(tm?.forSet != null ? { forSet: tm.forSet } : {}) }
+    const kind = { ...(tm?.kind ? { kind: tm.kind } : {}), ...(tm?.phase ? { phase: tm.phase } : {}), ...(tm?.hand ? { hand: tm.hand } : {}), ...(tm?.forSet != null ? { forSet: tm.forSet } : {}) }
     if (paused) {
       stopRestTicking()
+      hush()
+      holdSession(false)
       set({ timer: { left, total, endsAt, forIdx, ...kind, paused: true } })
       return
     }
     const ticking = !!timerInt && !!tm && !tm.paused && !tm.ready
     set({ timer: { left, total, endsAt, forIdx, ...kind } })
+    countdown(useStore.getState().S.sound, left)   // against the notification's end, as addRest does
+    holdSession(true)
+    hiddenOver = false   // its end is ahead again: +15 s on one that ran out in the pocket
     if (ticking) return
     // As in resumeRest: a hide from while it was held or over is no catch-up of this countdown.
     pageHiddenAt = document.hidden ? Date.now() : null
     runRest(set, get)
   },
+  // "I'm ready now": the rest is over early, and whatever it was going to hand over to happens
+  // now. The Skip button, −15 s past zero and the wheel at 0:00 come here; everything else that
+  // ends a rest (a new rest, a hold starting, an exercise removed, the workout discarded) uses
+  // stopRest. Dismiss on Ready comes here too, with nothing left to hand over: the end already did.
+  // `seen` is false for the Android notification's own Skip: the screen moves on for when the
+  // app is opened, like a rest that ran out in a pocket, but no hold starts that nobody watched.
+  skipRest(seen = true) {
+    const tm = get().timer
+    get().stopRest()
+    if (tm && !tm.ready && tm.hand && handOver) handOver(tm, seen)
+  },
+  // The workout screen's handler for a rest's hand-over (see handOver above).
+  bindRest(fn) { handOver = typeof fn === 'function' ? fn : null },
+  // Sounds switched on or off in Settings while a timer runs: the countdown for this timer was
+  // queued when it started, so queue it again (or, with Sounds off, call it off).
+  restartCountdown() {
+    // A paused rest has no count-in queued (pauseRest called it off) and must not get one: it
+    // would tick a frozen clock down to nothing. Resuming queues it again.
+    const tm = get().timer
+    const left = tm ? (tm.paused ? null : tm.left) : get().work?.left
+    if (left != null) countdown(useStore.getState().S.sound, left)
+  },
   stopRest() {
+    // The count-in and the audio session are shared with the hold, so they are called off only
+    // when there is a rest to call them off for: the closing set of one exercise stops the rest
+    // while a hold may be running on another, and that hold's count-in is not this one's to end.
+    if (get().timer) { hush(); holdSession(false) }
     stopRestTicking()
     // Skip, Dismiss, a rest replacing this one and "rest off" all take the native alarm and
     // its notifications down with it, or the alert fires after the user already moved on.
@@ -373,11 +549,12 @@ export const useUI = create((set, get) => ({
      purpose: the two mean opposite things, they must never run together, and a work set is
      something you are watching — so it gets no server push (that endpoint says "rest over",
      and a plank does not need a notification you are staring at anyway).
-     `onDone(elapsedSec, { chimed, abandoned })` is called both when the countdown reaches zero and
-     on an early finish; the elapsed time is what actually gets logged, so stopping at 0:38 of a
-     0:45 hold records 0:38 rather than crediting the full target. `chimed` is true when the
+     `onDone(elapsedSec, { chimed, abandoned, endedAt })` is called both when the countdown reaches
+     zero and on an early finish; the elapsed time is what actually gets logged, so stopping at 0:38
+     of a 0:45 hold records 0:38 rather than crediting the full target. `chimed` is true when the
      countdown ran out in front of you and the end chime and buzz have just played; `abandoned`
-     when a rest displaced the hold (abandonWork).
+     when a rest displaced the hold (abandonWork); `endedAt` when it ran out while the page was
+     hidden and is only finished now the page is back: the moment it really ended.
      `owner` ({ idx, i, id }: the active entry and set being held) lets a hold outlive a reload or
      the app being killed (restoreWork below). onDone is a closure and cannot be kept, so the owner
      says where the time goes, and the workout screen binds its handler again (bindWork). */
@@ -389,6 +566,8 @@ export const useUI = create((set, get) => ({
     workDone = onDone
     pageHiddenAt = document.hidden ? Date.now() : null   // see startRest: a stale hide is not a catch-up
     set({ work: { left: total, total, endsAt, label, overtime: useStore.getState().S.timedSetOvertime === true, ...(owner ? { owner } : {}) } })
+    countdown(useStore.getState().S.sound, total)
+    holdSession(true)
     runWork(set, get)
   },
   // The workout screen, back on a hold restored after a reload: `make(work)` gives it the handler
@@ -429,6 +608,9 @@ export const useUI = create((set, get) => ({
   },
   // Abandon without logging anything.
   stopWork() {
+    // Only a hold's own count-in and audio session, as in stopRest: moving an exercise up or down
+    // stops "the hold" mid-rest to drop its callback, and used to silence the rest's last seconds.
+    if (get().work) { hush(); holdSession(false) }
     stopWorkTicking()
     workDone = null
     set({ work: null })
@@ -452,7 +634,7 @@ const saveRest = tm => {
   if (!ss) return
   try {
     if (!tm || tm.ready) ss.removeItem(REST_KEY)
-    else ss.setItem(REST_KEY, JSON.stringify({ endsAt: tm.endsAt, total: tm.total, forIdx: tm.forIdx ?? null, forSet: tm.forSet ?? null, kind: tm.kind || null, paused: !!tm.paused, left: tm.left }))
+    else ss.setItem(REST_KEY, JSON.stringify({ endsAt: tm.endsAt, total: tm.total, forIdx: tm.forIdx ?? null, forSet: tm.forSet ?? null, kind: tm.kind || null, phase: tm.phase || null, hand: tm.hand || null, paused: !!tm.paused, left: tm.left }))
   } catch { /* the rest just does not outlive a reload */ }
 }
 export function restoreRest(now = Date.now()) {
@@ -463,14 +645,18 @@ export function restoreRest(now = Date.now()) {
   const total = Math.round(Number(saved.total))
   const ok = useStore.getState().S?.active && total > 0 && (saved.paused ? saved.left > 0 : saved.endsAt > now)
   if (!ok) { try { ss.removeItem(REST_KEY) } catch { /* nothing to drop */ } return false }
-  const base = { total, forIdx: saved.forIdx ?? undefined, ...(saved.forSet != null ? { forSet: saved.forSet } : {}), ...(saved.kind === 'switch' ? { kind: 'switch' } : {}) }
+  const base = { total, forIdx: saved.forIdx ?? undefined, ...(saved.forSet != null ? { forSet: saved.forSet } : {}), ...(saved.kind ? { kind: saved.kind } : {}), ...(saved.phase ? { phase: saved.phase } : {}), ...(saved.hand ? { hand: saved.hand } : {}) }
   if (saved.paused) {
     useUI.setState({ timer: { ...base, left: Math.round(saved.left), endsAt: saved.endsAt, paused: true } })
     if (MOBILE) holdRestAlert(Math.round(saved.left), total)
     return true
   }
   pageHiddenAt = typeof document !== 'undefined' && document.hidden ? now : null
-  useUI.setState({ timer: { ...base, left: Math.max(1, Math.round((saved.endsAt - now) / 1000)), endsAt: saved.endsAt } })
+  const left = Math.max(1, Math.round((saved.endsAt - now) / 1000))
+  useUI.setState({ timer: { ...base, left, endsAt: saved.endsAt } })
+  // The count-in queued at the start went with the page: queue it again for what is left.
+  countdown(useStore.getState().S.sound, left)
+  holdSession(true)
   if (MOBILE) bookRestEnd(saved.endsAt, total, base.kind)
   runRest(useUI.setState, useUI.getState)
   return true
@@ -512,6 +698,9 @@ export function restoreWork(now = Date.now()) {
   }
   pageHiddenAt = typeof document !== 'undefined' && document.hidden ? now : null
   useUI.setState({ work: { ...wk, left, ...(left <= 0 ? { alerted: true } : {}) } })
+  // As for a restored rest: the count-in went with the page, so it is queued again.
+  if (left > 0) countdown(useStore.getState().S.sound, left)
+  holdSession(true)
   runWork(useUI.setState, useUI.getState)
   return true
 }
@@ -519,11 +708,12 @@ useUI.subscribe((s, prev) => { if (s.work !== prev.work && (!s.work || !prev.wor
 restoreWork()
 
 // Buttons on the rest notification (pause, ±15s, skip) change the countdown in the
-// service first, then mirror that into the in-app timer. skip ends it. Seconds round up, as the
-// notification's clock does, so a pause in the last half second still holds a second here.
+// service first, then mirror that into the in-app timer. skip ends it and hands over, unseen (see
+// skipRest). Seconds round up, as the notification's clock does, so a pause in the last half
+// second still holds a second here.
 bindNativeRest(ev => {
   if (!ev) return
-  if (ev.type === 'skip') { useUI.getState().stopRest(); return }
+  if (ev.type === 'skip') { useUI.getState().skipRest(false); return }
   const left = Math.ceil((ev.leftMs || 0) / 1000)
   if (!(left > 0)) return
   const total = Math.max(left, Math.round((ev.totalMs || 0) / 1000))

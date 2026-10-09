@@ -11,6 +11,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 const sound = vi.hoisted(() => ({ canVibrate: true, iPhone: false }))
 vi.mock('../lib/sound.js', () => ({
   unlock: vi.fn(), beep: vi.fn(), chime: vi.fn(), vibrate: vi.fn(), alertBuzz: vi.fn(),
+  countdown: vi.fn(), hush: vi.fn(), holdSession: vi.fn(),
   vibrateSupported: () => sound.canVibrate, appleTouchDevice: () => sound.iPhone,
 }))
 vi.mock('../lib/wakelock.js', () => ({ wakeLockSupported: () => true }))
@@ -59,6 +60,17 @@ describe('the in-workout settings sheet', () => {
     expect(row('Rest timer').querySelector('.lrow-v').textContent).toBe('1:30')
     expect(row('Keep screen awake').querySelector('.lrow-s').textContent).toMatch(/^The screen stays on/)
     expect(row('Exercise animations').querySelector('.lrow-s')).toBeNull()
+  })
+
+  it('Play a sound mid-rest queues the count-in again, and off calls it off', async () => {
+    const { countdown } = await import('../lib/sound.js')
+    act(() => useUI.getState().startRest(60, 0))
+    countdown.mockClear()
+    act(() => row('Play a sound').querySelector('[role=switch]').click())
+    expect(countdown).toHaveBeenLastCalledWith(true, 60)
+    act(() => row('Play a sound').querySelector('[role=switch]').click())
+    expect(countdown).toHaveBeenLastCalledWith(false, 60)
+    act(() => useUI.getState().stopRest())
   })
 
   it('writes the same fields as Settings', () => {

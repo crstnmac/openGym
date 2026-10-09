@@ -4,7 +4,7 @@ import SwipeRow from '../components/SwipeRow.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { workoutControls } from '../lib/workout-controls.js'
-import { useUI } from '../store/useUI.js'
+import { useUI, remapHand } from '../store/useUI.js'
 import { exOr, betterWeight } from '../lib/exercises.js'
 import { usesBar } from '../lib/bar.js'
 import { loadKindFor, baseWeightFor, inventoryFor, rowLoad, sameLoad, plateDelta, dropGrid } from '../lib/plates.js'
@@ -16,7 +16,7 @@ import { pinState } from '../lib/queue.js'
 import { t, tn, exerciseNameFor, exerciseNameClass } from '../lib/i18n.js'
 import { api, beacon } from '../lib/api.js'
 import { pyramidRestFor, maxRecordAt, isPyramid, pyramidLabel } from '../lib/pyramid.js'
-import { insertionIndexAfterCurrentUnit, nextUnfinishedUnit, setProgressHighWater, supersetFlowStep, restAfterSet, restOnRecheck, restSecFor, warmupRestSecFor } from '../lib/supersetFlow.js'
+import { insertionIndexAfterCurrentUnit, nextUnfinishedUnit, nextUnitAhead, setProgressHighWater, supersetFlowStep, restAfterSet, restOnRecheck, restSecFor, warmupRestSecFor, restKind, restFocusIdx, restSetPhase } from '../lib/supersetFlow.js'
 import Media from '../components/Media.jsx'
 import WorkoutThumb, { hasWorkoutMedia } from '../components/WorkoutThumb.jsx'
 import { workoutSettingsSheet } from '../components/WorkoutSettingsSheet.jsx'
@@ -36,7 +36,7 @@ import { sessionNoProg, setSessionNoProg, setEntryNoProg, joinSessionNoProg } fr
 import { glyphOf } from '../lib/glyphs.js'
 import { markAllSetsDone, sessionHistory } from '../lib/backfill.js'
 import { bestSetFor } from '../lib/exercise-history.js'
-import { isWarmupRow, isDropSet, isRestPauseSet, dropsOf, clustersOf, addDrop, addCluster, removeDropAt, removeClusterAt, setDropAt, setClusterAt, nextDropWeight, nextBurstReps, isSideSet, makeSideSet, setSideField, toggleSide, addSideDrop, removeSideDropAt, setSideDropAt, addSideCluster, removeSideClusterAt, setSideClusterAt, WEIGHT_ORIGIN_MANUAL } from '../lib/workout-model.js'
+import { isWarmupRow, isDropSet, isRestPauseSet, dropsOf, clustersOf, addDrop, addCluster, removeDropAt, removeClusterAt, setDropAt, setClusterAt, nextDropWeight, nextBurstReps, isSideSet, makeSideSet, setSideField, toggleSide, addSideDrop, removeSideDropAt, setSideDropAt, addSideCluster, removeSideClusterAt, setSideClusterAt, WEIGHT_ORIGIN_MANUAL, nextUndoneAfter } from '../lib/workout-model.js'
 import { canMoveActiveWorkoutUnit, moveActiveWorkoutUnit, canMoveActiveWorkoutEntry, moveActiveWorkoutEntry } from '../lib/active-workout-order.js'
 import { nextOpenSet, workoutKeyAction } from '../lib/workout-keys.js'
 import { MUSCLE_NAME } from '../lib/muscles.js'
@@ -744,11 +744,19 @@ function ExerciseBlock({ entryIdx, compact, dense, editing, onToggle, onToggleSi
 // the running hold (its callback writes the seconds to a row) and the rest a set started
 // (timer.forSet). Removing the set either one belongs to stops it first; Undo does not start it
 // again. Rows above or below just shift.
-let holdAt = null    // { owner, idx, i }: the row a running hold will write to (startTimed)
+let holdAt = null    // { owner, idx, i, cur }: the row a running hold will write to (startTimed)
 let flashSeq = 0
 // UI state written from here and from effects; a test that stubs the UI store without setState
 // simply does not see it.
 const setUI = patch => useUI.setState?.(patch)
+// An exercise added at `at` moves every exercise from there down by one, and a running hold's
+// row with them: in the List layout the hold can be on an exercise below where the new one goes
+// (after the current unit). Its saved owner moves in useUI.shiftRestOwner, called beside this.
+// The marker it remembers (holdAt.cur, for holdDone's `away`) is kept on its exercise the same way.
+const shiftHoldExercise = (at, by) => {
+  if (holdAt && holdAt.idx >= at) holdAt = { ...holdAt, idx: holdAt.idx + by }
+  if (holdAt?.cur >= at) holdAt = { ...holdAt, cur: holdAt.cur + by }
+}
 const shiftRowRefs = (idx, from, by) => {
   if (holdAt && holdAt.idx === idx && holdAt.i >= from) holdAt = { ...holdAt, i: holdAt.i + by }
   // The hold's saved owner (useUI.work.owner, what a reload brings it back to) moves with it.
@@ -832,6 +840,72 @@ export function copyActiveSet(idx, i) {
 }
 
 /* ---------- active workout ---------- */
+// The newest render's handlers, for callbacks that fire long after the render that made them: a
+// hold's end and a rest's hand-over must judge the workout as it is then, not as it was — and if
+// the view was left and re-entered in between, the instance that is on screen now must answer.
+let latest = {}
+
+// A timed exercise runs itself once started: hold → rest → next hold, until its sets are done.
+// The rest carries where it leads (timer.hand.chain: entry id, row, row count, and the marker as
+// the rest started), and useUI hands it back here when the rest is over with its owner index as it
+// is then. The workout may have moved on meanwhile: the exercise must still be the same one, still
+// timed, still alone in its unit, with the same rows, that row still undone and no hold running.
+// And you must not have gone to another exercise: that takes this one off autopilot (owner's
+// call), so the next hold waits for a tap and the screen stays where you went. `stayed` says so,
+// read by restHandOver before the rest's own move: the marker is where it was when the rest began
+// (chain.cur, kept on the same exercise when the list changes shape: useUI.remapHand), or on this
+// exercise itself. In the List layout a hold runs wherever you tap play, not only where the
+// marker is.
+const chainHold = (chain, forIdx, stayed) => {
+  if (!stayed) return
+  const S2 = useStore.getState().S
+  const e = forIdx != null ? S2.active?.entries[forIdx] : null
+  if (!chain || !e || e.id !== chain.id || modeOf({ ...(e.target || {}), id: e.id }) !== 'time') return
+  if (e.sets.length !== chain.n || !e.sets[chain.i] || e.sets[chain.i].done || useUI.getState().work) return
+  if (unitOf(supersetUnits(S2.active.entries), forIdx).length !== 1) return
+  latest.startTimed?.(forIdx, chain.i)
+}
+// A rest that runs out hands the screen over to what it has been pointing at all along
+// (supersetFlow.restFocusIdx — the exercise the bar's "Set / Round / Exercise" means and the List
+// layout scrolls to). Without this the bar said "Exercise", the countdown ended, and you were left
+// looking at the exercise you had just finished, with no way forward but Next.
+//
+// With one exception: forward only. After the closing set of an exercise the rest points at the
+// next unit with work, WRAPPING — a warm-up skipped at the top of the session is still work, and
+// that is the honest thing to call the rest. But a rest that ends by yanking the screen back to
+// the first exercise is worse than one that leaves you where you are (2026-09-18, a coach session
+// with the warm-up block skipped: every later exercise "jumped, but not to the next exercise").
+// So the screen takes the next unit AHEAD with work (nextUnitAhead) and otherwise stays.
+//
+// Judged when it fires, like the hold chain: a rest outlives the render that armed it. `from`
+// (timer.hand.from) is where the marker stood when the rest began — if it has moved since, you
+// navigated during the break, and a countdown does not overrule that. A rest with no `from` moves
+// nothing: the one a re-check owes (toggle) — finished work you unticked and ticked again must not
+// navigate (the promise above restOnRecheck), while a redone hold still chains its next one.
+//
+// What a rest hands over to once it is over (useUI.bindRest). Bound once, here, rather than by a
+// mounted screen: the workout view unmounts on every tab switch, and a rest restored at boot
+// (gym_rest) has to find it whichever screen the app opens on.
+export function restHandOver(tm, seenLive) {
+  const hand = tm.hand || {}
+  const active = useStore.getState().S.active
+  // Where the marker is as the rest ends, read before the move below.
+  const stayed = !!active && (active.cur === hand.chain?.cur || active.cur === tm.forIdx)
+  if ('from' in hand && active && tm.forIdx != null && active.cur === hand.from) {
+    const units = supersetUnits(active.entries)
+    const to = tm.kind === 'block'
+      ? nextUnitAhead(active.entries, units, tm.forIdx)?.[0]
+      : restFocusIdx(active.entries, units, tm.forIdx, tm.kind)
+    if (to != null && to !== hand.from && active.entries[to]) {
+      useStore.getState().update(s => { if (s.active && s.active.cur === hand.from) s.active.cur = to })
+    }
+  }
+  // The next hold is the half that must not run unwatched: a rest that expired in your pocket
+  // would otherwise log a hold you never did. The move above is safe either way.
+  if (seenLive) chainHold(hand.chain, tm.forIdx, stayed)
+}
+useUI.getState().bindRest?.(restHandOver)
+
 export function removeActiveExercise(idx) {
   // Clear the work callback before indexes can shift. This also protects a confirmation sheet
   // that was opened first and confirmed after a timed hold started.
@@ -1071,6 +1145,34 @@ function ActiveWorkout() {
     return () => cancel(frame)
   }, [workoutView])
 
+  // When a rest starts in the List and Compact layouts, bring the exercise it points you at
+  // (supersetFlow.restFocusIdx: the one its label — Set, Round, Exercise — means) into view — its
+  // first unfinished set row when there is one, the exercise otherwise — so the bar at the bottom
+  // and the thing it is timing are on screen together. The Cards layout only ever shows the
+  // current unit. Keyed on the rest's start, endsAt − total: a tick, ±15 s on a running rest
+  // (which moves both) and forIdx moving when an exercise is added or removed mid-rest leave it
+  // alone, so none of those scrolls. A resume after a pause, and ±15 s while paused, move only
+  // one of the two and do scroll again. Rating a set closes the effort sheet and ticks the set in
+  // one tap, and the sheet puts the page back where it stood for a third of a second after that:
+  // the scroll waits for it (afterScrollRestore), as the superset card's does, or it is undone on
+  // the spot.
+  const restStart = useUI(s => s.timer && s.timer.forIdx != null ? s.timer.endsAt - s.timer.total * 1000 : null)
+  useEffect(() => {
+    if (!restStart || !listMode) return
+    return afterScrollRestore(() => {
+      const tm = useUI.getState().timer
+      // The rest after a hold you went away from leaves the page where you went (toggle).
+      if (!tm || tm.forIdx == null || tm.hand?.stay) return
+      // What the newest render shows (`shown`, above): the ref maps are keyed by its entries.
+      const { entries } = shown.current
+      const entry = entries[restFocusIdx(entries, supersetUnits(entries), tm.forIdx, tm.kind)]
+      if (!entry) return
+      const setIdx = entry.sets.findIndex(s => !s.done)
+      const el = (setIdx >= 0 && setRefs.current.get(entry)?.get(setIdx)) || exRefs.current.get(entry)
+      if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }, [restStart, listMode])
+
   const total = setUnitsTotal(A.entries)
   const done = setsDoneActive(A)
 
@@ -1154,7 +1256,8 @@ function ActiveWorkout() {
       const rest = useUI.getState().timer
       if (rest && rest.forIdx != null) {
         const forIdx = moved.indices.indexOf(rest.forIdx)
-        if (forIdx >= 0) useUI.setState({ timer: { ...rest, forIdx } })
+        // So does where its hand-over remembers the marker (useUI.remapHand): a move is not a visit.
+        if (forIdx >= 0) useUI.setState({ timer: { ...rest, forIdx, ...(rest.hand ? { hand: remapHand(rest.hand, i => moved.indices.indexOf(i)) } : {}) } })
       }
     }, true)
   }
@@ -1345,6 +1448,7 @@ function ActiveWorkout() {
         s.active.entries.splice(insertAt, 0, joinSessionNoProg(s.active, { id: ex.id, ...built, ...(curRid ? { rid: curRid } : {}), ...(noProg ? { noProg: true } : {}) }))
         s.active.cur = insertAt
         useUI.getState().shiftRestOwner(insertAt, 1)
+        shiftHoldExercise(insertAt, 1)
       })
     }
     // The "+" on a picker row reads as "add this now" — routed through the same detail
@@ -1504,12 +1608,15 @@ function ActiveWorkout() {
   // finish logs 0:38 of a 0:45 target rather than crediting the full prescription — and then
   // checks the set off through the normal path, so rest, supersets and the finish prompt all
   // behave exactly as they do for a reps set.
+  // Reads the store, not the render, because a chained hold starts from a rest's hand-over, a
+  // rest after the render that armed it (see the chain in toggle).
   const startTimed = (idx, i, onFocusProgress) => {
     if (editing) return
-    const e = A.entries[idx]
+    const e = useStore.getState().S.active?.entries[idx]
+    if (!e?.sets[i]) return
     // This tap may be the only one before the hold's countdown beeps (a timed first exercise):
     // get the audio context running while it still counts as a gesture (iOS, #152).
-    unlock(S.sound)
+    unlock(useStore.getState().S.sound)
     // How long to hold: the row's own seconds, unless it is carrying a plan from a hold that was
     // displaced before it finished. `sec` on a timed row is both the plan and the log, so writing
     // what a part-held set managed would otherwise become the next hold's target — 3 seconds of a
@@ -1517,20 +1624,28 @@ function ActiveWorkout() {
     // the row is held to the end, ticked, or given a duration you typed yourself, and it never
     // reaches S.workouts (lib/finish-workout.js).
     const plan = (!e.sets[i].done && e.sets[i].planSec) || e.sets[i].sec || 45
-    const owner = { idx, i }
+    const owner = { idx, i, id: e.id }
     useUI.getState().startWork(plan, exerciseNameText(exOr(e.id)), holdDone(owner, plan, onFocusProgress), { idx, i, id: e.id })
     // After startWork: a hold it displaced has already written its seconds to its own row.
-    holdAt = { owner, idx, i }
+    // `cur`: where the marker stands as the hold starts, so its end can tell whether you went to
+    // another exercise meanwhile (holdDone).
+    holdAt = { owner, idx, i, cur: useStore.getState().S.active?.cur }
   }
   // What a hold hands back to its row: on its end, its Done, or a rest displacing it. Also bound
   // again to a hold restored after a reload (useUI.bindWork, below).
-  const holdDone = (owner, plan, onFocusProgress) => (elapsed, { abandoned = false, chimed = false } = {}) => {
-    const { idx } = owner
-    // The row may have moved while the hold ran (a set copied or removed above it): write to
-    // where it is now. holdAt is that place (deleteActiveSet, copyActiveSet).
+  const holdDone = (owner, plan, onFocusProgress) => (elapsed, { abandoned = false, chimed = false, endedAt } = {}) => {
+    // The row may have moved while the hold ran (a set copied or removed above it, an exercise
+    // added above its own): write to where it is now. holdAt is that place (deleteActiveSet,
+    // copyActiveSet, shiftHoldExercise).
     const mine = holdAt?.owner === owner
+    const idx = mine ? holdAt.idx : owner.idx
     const i = mine ? holdAt.i : owner.i
+    const startCur = mine ? holdAt.cur : undefined
     if (mine) holdAt = null
+    // Checked by id: the list may have been edited while the hold ran, and a hold must never be
+    // written onto a different exercise.
+    const en = useStore.getState().S.active?.entries[idx]
+    if (!en || (owner.id != null && en.id !== owner.id) || !en.sets[i]) return
     // A hold a rest displaced (useUI.abandonWork: a set ticked on another row, or another
     // exercise) keeps its seconds and nothing else. It is not a finish: the row stays unticked
     // and starts no rest, because the rest that displaced the hold is already counting down —
@@ -1540,11 +1655,17 @@ function ActiveWorkout() {
       // that displaces the hold, so the hand-back lands on a row that is already ticked. It
       // still wants the seconds (that is what was held, not the target), but a finished row has
       // no use for a plan set aside.
-      mutEntry(idx, en => { if (en.sets[i].planSec == null && !en.sets[i].done) en.sets[i].planSec = plan; en.sets[i].sec = elapsed })
+      mutEntry(idx, x => { if (x.sets[i].planSec == null && !x.sets[i].done) x.sets[i].planSec = plan; x.sets[i].sec = elapsed })
       return
     }
-    mutEntry(idx, en => { en.sets[i].sec = elapsed; delete en.sets[i].planSec })
-    if (!useStore.getState().S.active.entries[idx].sets[i].done) toggle(idx, i, undefined, { quiet: chimed, onFocusProgress })
+    mutEntry(idx, x => { x.sets[i].sec = elapsed; delete x.sets[i].planSec })
+    // `fromHold`: the hold ended by itself or by its Done, which is what lets it chain the next one.
+    // `endedAt`: it ran out while the page was hidden, and its rest has been counting since.
+    // `away`: the marker went to another exercise while it ran — not where it stood as the hold
+    // began, and not this exercise itself (toggle).
+    const now = useStore.getState().S.active
+    const away = now.cur !== startCur && now.cur !== idx
+    if (!now.entries[idx].sets[i].done) latest.toggle(idx, i, undefined, { quiet: chimed, fromHold: true, since: endedAt, away, onFocusProgress })
   }
   // A hold that came back from a reload has no handler yet: this screen gives it its own.
   const holdDoneRef = useRef(holdDone)
@@ -1553,8 +1674,10 @@ function ActiveWorkout() {
     useUI.getState().bindWork?.(wk => {
       // From here on it is tracked like a hold started on this screen (holdAt), so a set copied or
       // removed above it moves it along.
-      const owner = { idx: wk.owner.idx, i: wk.owner.i }
-      holdAt = { owner, idx: owner.idx, i: owner.i }
+      // Where the marker stood as it began went with the reload: where it stands now is the
+      // nearest thing, since nobody can have gone anywhere on a screen that was not there.
+      const owner = { idx: wk.owner.idx, i: wk.owner.i, id: wk.owner.id }
+      holdAt = { owner, idx: owner.idx, i: owner.i, cur: useStore.getState().S.active?.cur }
       return (...a) => holdDoneRef.current(owner, wk.total)(...a)
     })
   }, [])
@@ -1562,7 +1685,11 @@ function ActiveWorkout() {
   // `quiet`: the hold that ticks this set has just ended with the chime and its buzz pattern
   // (store/useUI.js). The tick's own beep would sound over the chime's first note and clip it,
   // and its short buzz would cut the pattern off: a new vibrate call replaces the running one.
-  const toggle = (idx, i, side, { quiet = false, onFocusProgress } = {}) => {
+  // `fromHold`: the hold ended by itself or by its Done, which is what lets it chain the next one.
+  // `since`: when that hold ended, if it ran out while the page was hidden: the rest it earned has
+  // been counting since then (useUI.startRest), not from this tick on the page coming back.
+  // `away`: you went to another exercise while that hold ran (holdDone).
+  const toggle = (idx, i, side, { quiet = false, fromHold = false, since, away = false, onFocusProgress } = {}) => {
     // Ticking a set ends the typing in that row: drop the keyboard before the rest timer, the
     // effort sheet or the next exercise moves in. WebKit keeps the input focused across the
     // button tap, and a focused input with its keyboard gone is what leaves the tab bar
@@ -1586,10 +1713,12 @@ function ActiveWorkout() {
         if (!quiet) { beep(S.sound, 1040, 0.12); vibrate(30) }
         // The unit that owns the ticked set — not the marked one. Since !92 the marker no longer
         // follows a finished exercise, and in list mode any exercise can be worked on, so judging
-        // the marker's unit here declared the workout complete after one set elsewhere.
-        const ownUnit = unitOf(units, idx)
-        const unitDone = ownUnit.every(ui => (ui === idx ? e : A.entries[ui]).sets.every(x => x.done))
-        if (unitDone) workoutDone = !nextUnfinishedUnit(A.entries, supersetUnits(A.entries), idx)
+        // the marker's unit here declared the workout complete after one set elsewhere. Judged on
+        // the draft, not the render: a hold's end arrives long after the render that armed it.
+        const draft = s.active.entries
+        const draftUnits = supersetUnits(draft)
+        const unitDone = unitOf(draftUnits, idx).every(ui => draft[ui].sets.every(x => x.done))
+        if (unitDone) workoutDone = !nextUnfinishedUnit(draft, draftUnits, idx)
         if (e.sets.every(x => x.done)) {
           exJustDone = true
           // topW is captured now; exWeights only at the finish (doFinishWorkout), so a typo you
@@ -1627,26 +1756,64 @@ function ActiveWorkout() {
       // A warm-up ramp set may rest shorter than a work set (the exercise's warmupRestSec); the
       // last ramp set, into the first work set, still gets the working rest.
       const restAfter = warmupRestSecFor(fresh.entries[idx], i, restSec)
+      // What the bar calls the rest — warm-up or not — read off the set it leads into.
+      const phase = restSetPhase(fresh.entries[idx], i)
+
+      const kind = restKind({ unitDone: freshUnitDone, superset: (freshUnit?.length || 0) > 1 })
+      // A hold that finished on its own hands its rest the next hold — same exercise only: a
+      // superset's round order is not second-guessed, and the tap that ticks a set is not a hold.
+      // Also on a re-check, so an unticked-and-redone hold keeps the exercise running itself.
+      const alone = !freshUnit || freshUnit.length <= 1
+      const rows = fresh.entries[idx].sets
+      // Unless you went to another exercise while the hold ran (owner's call): that takes it off
+      // autopilot, as going away during its rest does (chainHold). The rest it earned still runs
+      // but hands over nothing (hand.stay): no next hold, no move of the screen at either end of
+      // it, and the move a finished exercise owes you (moveOn) is not made either.
+      const parked = away && alone
+      // `cur`: where the marker stands as the rest starts, so a move of yours during it stops the
+      // chain (chainHold). Read from the store, like the hand-over's `from`.
+      const chainTo = at => (fromHold && alone && at >= 0 ? { chain: { id: fresh.entries[idx].id, i: at, n: rows.length, cur: useStore.getState().S.active?.cur } } : undefined)
+      // Every rest a completed set starts hands the screen over when it is over (restHandOver):
+      // `from` is where the marker stands as the rest starts — read from the store, since a
+      // round's rest starts after the marker has moved on to the round's next member (below).
+      // `move` false leaves it out (a re-check, below).
+      const rest = (move = true) => {
+        const hand = parked ? { stay: true } : { ...(move ? { from: useStore.getState().S.active?.cur } : {}), ...chainTo(freshUnitDone ? -1 : nextUndoneAfter(rows, i)) }
+        startRest(restAfter, idx, { kind, phase, forSet: i, hand: Object.keys(hand).length ? hand : undefined, ...(since != null ? { since } : {}) })
+      }
+      // Finishing an exercise owes you the next one. Normally the rest carries you there when
+      // it ends; when nothing is going to time that gap — the rest timer is Off, the next
+      // exercise has warm-up sets of its own to ramp through first, or this is a backfilled
+      // session that has no rest at all — the move happens now instead of not at all. Forward
+      // only, like the hand-over: `nextUnit` wraps to work left behind, and that is where the
+      // rest is owed, not where the screen goes.
+      const gapIsTimed = !!restAfter && !A.backfill && !restBeforeWarmup
+      const ahead = freshUnitDone ? nextUnitAhead(fresh.entries, freshUnits, idx) : null
+      const moveOn = () => {
+        if (parked || !freshUnitDone || !ahead || gapIsTimed) return
+        update(s => { if (s.active && s.active.entries[ahead[0]]) s.active.cur = ahead[0] })
+      }
 
       // A re-check of finished work must not navigate or reopen a sheet, but it may still owe
       // you a rest — see restOnRecheck, and the other half of issue #3. A rest that already ran
       // out and only shows Ready is not running: it has nothing left to time. A paused one is
       // still the rest you are in, held on purpose, and a re-check leaves it as it is.
+      // So the rest it starts carries no move (a redone hold still chains its next one).
       if (!progress.isNew) {
-        const rest = useUI.getState().timer
-        if (!restBeforeWarmup && restOnRecheck({ timerRunning: !!(rest && !rest.ready), unitDone: freshUnitDone, lastUnit: freshWorkoutDone })) startRest(restAfter, idx, { forSet: i })
+        const tm = useUI.getState().timer
+        if (!restBeforeWarmup && restOnRecheck({ timerRunning: !!(tm && !tm.ready), unitDone: freshUnitDone, lastUnit: freshWorkoutDone })) rest(false)
         return
       }
 
       // Between the two sides of one timed per-side set (a side plank's left, then its right):
       // a short "Switch sides" pause instead of the set's whole rest, which comes once both
-      // sides are held (owner's call). A rest switched Off stays off.
-      const rows = fresh.entries[idx].sets
+      // sides are held (owner's call). A rest switched Off stays off. When the exercise runs
+      // itself, the pause hands over to the other side's hold.
       const sideOf = r => r && !isWarmupRow(r) ? r.side : null
-      const partner = sideOf(rows[i]) === 'L' && sideOf(rows[i + 1]) === 'R' ? rows[i + 1]
-        : sideOf(rows[i]) === 'R' && sideOf(rows[i - 1]) === 'L' ? rows[i - 1] : null
-      if (m === 'time' && partner && !partner.done && restAfter > 0) {
-        startRest(Math.min(SWITCH_SIDES_SEC, restAfter), idx, { kind: 'switch', forSet: i })
+      const partnerAt = sideOf(rows[i]) === 'L' && sideOf(rows[i + 1]) === 'R' ? i + 1
+        : sideOf(rows[i]) === 'R' && sideOf(rows[i - 1]) === 'L' ? i - 1 : -1
+      if (m === 'time' && partnerAt >= 0 && !rows[partnerAt].done && restAfter > 0) {
+        startRest(Math.min(SWITCH_SIDES_SEC, restAfter), idx, { kind: 'switch', forSet: i, hand: parked ? { stay: true } : chainTo(partnerAt), ...(since != null ? { since } : {}) })
         return
       }
 
@@ -1654,8 +1821,9 @@ function ActiveWorkout() {
       // one unless the next unit has an unfinished warm-up, and never enter superset navigation.
       // stopRest() first so a rest that belongs after this set replaces the one that was running.
       if (freshUnitDone) stopRest()
-      if (!freshUnit || freshUnit.length <= 1) {
-        if (!restBeforeWarmup && restAfterSet({ unitDone: freshUnitDone, lastUnit: freshWorkoutDone })) startRest(restAfter, idx, { forSet: i })
+      if (alone) {
+        if (!restBeforeWarmup && restAfterSet({ unitDone: freshUnitDone, lastUnit: freshWorkoutDone })) rest()
+        moveOn()
         onFocusProgress?.({ unitDone: freshUnitDone })
         return
       }
@@ -1663,14 +1831,17 @@ function ActiveWorkout() {
       const step = supersetFlowStep(fresh.entries, freshUnit, idx)
       if (!step) { onFocusProgress?.({ unitDone: freshUnitDone }); return }
       if (step.unitDone) {
-        if (nextUnit?.length && !restBeforeWarmup) startRest(restAfter, idx, { forSet: i })
+        if (nextUnit?.length && !restBeforeWarmup) rest()
+        moveOn()
       } else {
         if (step.nextIdx != null) update(s => { if (s.active) s.active.cur = step.nextIdx })
-        if (step.roundDone) startRest(restAfter, idx, { forSet: i })
+        if (step.roundDone) rest()
       }
       onFocusProgress?.({ unitDone: freshUnitDone })
     }
   }
+
+  latest = { toggle, startTimed }
 
   // Hardware keys (issue #133, lib/workout-keys.js): Space or Enter ticks the next set, ← and →
   // switch exercise. The listener is added once and calls the handler of the latest render, so
@@ -1815,7 +1986,8 @@ function ActiveWorkout() {
         {units.map((u, ui) => {
           const multi = u.length > 1
           const isCur = u.includes(cur)
-          return <section key={u.join('-')} className={'wl-unit' + (isCur ? ' cur' : '')} data-exidx={u[0]}>
+          // Superset members bind their own refs below; a lone exercise is anchored by its section.
+          return <section key={u.join('-')} ref={multi ? undefined : el => bindExRef(A.entries[u[0]], el)} className={'wl-unit' + (isCur ? ' cur' : '')} data-exidx={u[0]}>
             <div className="wl-hd">
               <span className="muted small">{multi ? t('Superset {0} / {1}', ui + 1, units.length) : t('Exercise {0} / {1}', ui + 1, units.length)}</span>
               {isCur
@@ -1838,7 +2010,7 @@ function ActiveWorkout() {
                 })}
               </div>
             ) : (
-              <ExerciseBlock entryIdx={u[0]} dense={dense}
+              <ExerciseBlock entryIdx={u[0]} dense={dense} onSetRowRef={(setIdx, el) => bindSetRef(A.entries[u[0]], setIdx, el)}
                 onPairPrev={u[0] > 0 ? () => pairAt(u[0] - 1, u[0]) : null}
                 onPairNext={u[0] < A.entries.length - 1 ? () => pairAt(u[0], u[0] + 1) : null}
                 {...blockProps(u[0])} />

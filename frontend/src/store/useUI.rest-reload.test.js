@@ -4,8 +4,8 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 
 vi.mock('../lib/api.js', () => ({ api: vi.fn(() => Promise.resolve({ ok: true })) }))
-const { chime } = vi.hoisted(() => ({ chime: vi.fn() }))
-vi.mock('../lib/sound.js', () => ({ beep: vi.fn(), chime, vibrate: vi.fn(), alertBuzz: vi.fn() }))
+const { chime, restOver, countdown } = vi.hoisted(() => ({ chime: vi.fn(), restOver: vi.fn(), countdown: vi.fn() }))
+vi.mock('../lib/sound.js', () => ({ beep: vi.fn(), chime, restOver, vibrate: vi.fn(), alertBuzz: vi.fn(), countdown, hush: vi.fn(), holdSession: vi.fn() }))
 
 import { api } from '../lib/api.js'
 import { useUI, restoreRest, REST_KEY } from './useUI.js'
@@ -22,7 +22,7 @@ describe('the rest timer across a reload', () => {
     useStore.setState({ S: { ...original.S, sound: true, active: { id: 'a', entries: [] } }, user: { id: 'u1' } })
     useUI.setState({ timer: null, work: null, toastMsg: '' })
     localStorage.clear()
-    api.mockClear(); chime.mockClear()
+    api.mockClear(); chime.mockClear(); restOver.mockClear()
   })
   afterEach(() => {
     useUI.getState().stopRest()
@@ -50,6 +50,53 @@ describe('the rest timer across a reload', () => {
     expect(useUI.getState().timer).toMatchObject({ ready: true, left: 0 })
     expect(chime).toHaveBeenCalledTimes(1)
     expect(saved()).toBeNull()
+  })
+
+  it('keeps what the rest leads into, so a restored rest ends with that kind\'s sound', () => {
+    useStore.setState({ S: { ...useStore.getState().S, classicChime: 'kind' } })
+    useUI.getState().startRest(90, 1, { kind: 'round', forSet: 3 })
+    expect(saved()).toMatchObject({ kind: 'round', forSet: 3 })
+    const kept = localStorage.getItem(REST_KEY)
+    useUI.setState({ timer: null })                              // the reload
+    localStorage.setItem(REST_KEY, kept)
+    expect(restoreRest()).toBe(true)
+    expect(useUI.getState().timer).toMatchObject({ forIdx: 1, forSet: 3, kind: 'round' })
+    vi.advanceTimersByTime(91_000)
+    expect(restOver).toHaveBeenCalledExactlyOnceWith(true, 'round')
+  })
+
+  it('keeps the set phase too, so a restored rest before a warm-up set still says so', () => {
+    useUI.getState().startRest(45, 0, { kind: 'set', phase: 'warmup', forSet: 0 })
+    expect(saved()).toMatchObject({ kind: 'set', phase: 'warmup' })
+    const kept = localStorage.getItem(REST_KEY)
+    useUI.setState({ timer: null })                              // the reload
+    localStorage.setItem(REST_KEY, kept)
+    expect(restoreRest()).toBe(true)
+    expect(useUI.getState().timer).toMatchObject({ kind: 'set', phase: 'warmup' })
+  })
+
+  it('keeps what the rest hands over to, and a restored rest hands it over at its end', () => {
+    const hand = { chain: { id: 'plank', i: 1, n: 3 } }
+    const done = vi.fn()
+    useUI.getState().bindRest(done)
+    useUI.getState().startRest(60, 0, { kind: 'set', forSet: 0, hand })
+    expect(saved()).toMatchObject({ hand })
+    const kept = localStorage.getItem(REST_KEY)
+    useUI.setState({ timer: null })                              // the reload
+    localStorage.setItem(REST_KEY, kept)
+    expect(restoreRest()).toBe(true)
+    expect(useUI.getState().timer).toMatchObject({ forIdx: 0, hand })
+    vi.advanceTimersByTime(61_000)
+    expect(done).toHaveBeenCalledTimes(1)
+    expect(done.mock.calls[0][0]).toMatchObject({ forIdx: 0, hand })
+    useUI.getState().bindRest(null)
+  })
+
+  it('queues the count-in again for the time that is left, the one queued at the start having gone with the page', () => {
+    localStorage.setItem(REST_KEY, JSON.stringify({ endsAt: Date.now() + 40_000, total: 90, forIdx: 1, kind: 'set', paused: false, left: 50 }))
+    countdown.mockClear()
+    expect(restoreRest()).toBe(true)
+    expect(countdown).toHaveBeenLastCalledWith(true, 40)
   })
 
   it('a paused rest comes back held', () => {
